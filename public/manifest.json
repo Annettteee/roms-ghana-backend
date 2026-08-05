@@ -1,0 +1,16 @@
+{
+  "name": "ROMS Ghana — Restaurant Operations",
+  "short_name": "ROMS Ghana",
+  "description": "Restaurant operations, dish costing and waste tracking for Ghanaian food businesses.",
+  "start_url": "/app.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#FBF4EA",
+  "theme_color": "#8B4A24",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

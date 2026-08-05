@@ -1,0 +1,2782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROMS Ghana — Restaurant Operations</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8B4A24">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ROMS Ghana">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --cream:#FBF4EA; --surface:#FFFFFF; --border:#E9DCC9; --ink:#2B2118; --ink-soft:#8C7A68;
+    --cocoa:#8B4A24; --cocoa-deep:#5E3117; --gold:#D9A441; --forest:#3F6B4F; --terracotta:#C0602F;
+    --critical:#B23A2A; --critical-bg:#FBE7E1; --ok:#3F6B4F; --ok-bg:#E7F0E9; --navy:#39424C;
+    --shadow: 0 1px 2px rgba(43,33,24,0.04), 0 8px 24px rgba(43,33,24,0.06);
+  }
+  /* Dark theme — same brand hues, dark surfaces, boosted contrast for text
+     since low-contrast dark themes are a real accessibility failure mode. */
+  html[data-theme="dark"]{
+    --cream:#1C1712; --surface:#25201A; --border:#3D3428; --ink:#F3EAD9; --ink-soft:#C4B49B;
+    --cocoa:#D9A15C; --cocoa-deep:#F0BE85; --gold:#E8C05E; --forest:#6FBF8C; --terracotta:#E08858;
+    --critical:#F0796A; --critical-bg:#3D2320; --ok:#6FBF8C; --ok-bg:#1E3327; --navy:#B8C4D4;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+  }
+  /* Font-size accessibility scaling — applied to the whole app via html font-size,
+     so every rem/em-based measurement (and most of our px text sizes read relative
+     to it through zoom) scales together rather than needing per-element overrides. */
+  html[data-fontsize="large"]{ font-size:18px; }
+  html[data-fontsize="xlarge"]{ font-size:21px; }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{ background:var(--cream); color:var(--ink); font-family:'Public Sans', sans-serif; -webkit-font-smoothing:antialiased; transition:background .2s, color .2s; }
+  h1,h2,h3,.display{ font-family:'Fraunces', serif; letter-spacing:-0.01em; }
+  .mono{font-family:'JetBrains Mono', monospace;}
+  .kente{ height:5px; width:100%; background:repeating-linear-gradient(90deg,
+      var(--cocoa) 0px, var(--cocoa) 18px, var(--gold) 18px, var(--gold) 30px,
+      var(--forest) 30px, var(--forest) 42px, var(--terracotta) 42px, var(--terracotta) 60px); flex-shrink:0; }
+
+  /* ---------- AUTH SCREEN ---------- */
+  #authScreen{ min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  #pendingApprovalScreen{ min-height:100vh; display:flex; align-items:center; justify-content:center; }
+  .auth-card{ width:380px; background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:32px; box-shadow:var(--shadow); }
+  .auth-brand{ font-size:24px; font-weight:700; color:var(--cocoa-deep); margin-bottom:2px; }
+  .auth-sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:22px; }
+  .auth-tabs{ display:flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; margin-bottom:20px; }
+  .auth-tab{ flex:1; text-align:center; padding:9px; font-size:13px; font-weight:700; cursor:pointer; background:var(--surface); }
+  .auth-tab.active{ background:var(--cocoa); color:#fff; }
+  .auth-card label{ font-size:11.5px; font-weight:700; color:var(--ink-soft); display:block; margin:12px 0 5px; }
+  .auth-card input{ width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:8px; font-size:13.5px; background:#FCF8F1; }
+  .auth-card input:focus{ outline:2px solid var(--gold); border-color:var(--gold); }
+  .auth-error{ background:var(--critical-bg); color:var(--critical); font-size:12.5px; padding:9px 12px; border-radius:8px; margin-top:12px; display:none; }
+  .auth-submit{ width:100%; margin-top:18px; padding:11px; border:none; border-radius:9px; background:var(--cocoa); color:#fff; font-weight:700; font-size:14px; cursor:pointer; }
+  .auth-submit:hover{ background:var(--cocoa-deep); }
+  .auth-submit:disabled{ opacity:.6; cursor:default; }
+  .auth-foot{ font-size:11px; color:var(--ink-soft); text-align:center; margin-top:16px; }
+
+  /* ---------- APP SHELL (unchanged design language) ---------- */
+  .app{ display:none; min-height:100vh; }
+  .app.active{ display:flex; }
+  .sidebar{ width:230px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; }
+  .brand{ padding:22px 22px 16px; border-bottom:1px solid var(--border); }
+  .brand-name{ font-size:22px; font-weight:700; color:var(--cocoa-deep); line-height:1.1; }
+  .brand-sub{ font-size:11.5px; color:var(--ink-soft); margin-top:3px; }
+  nav{ padding:14px 10px; flex:1; }
+  .nav-item{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:9px; font-size:14px; font-weight:500; cursor:pointer; margin-bottom:2px; border-left:3px solid transparent; }
+  .nav-item:hover{ background:#F6EBDC; }
+  .nav-item.active{ background:#F6EAD8; border-left:3px solid var(--cocoa); color:var(--cocoa-deep); font-weight:700; }
+  .sub-tab{ padding:9px 14px; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer; border-bottom:2px solid transparent; margin-top:8px; }
+  .sub-tab:hover{ color:var(--ink); }
+  .sub-tab.active{ color:var(--cocoa-deep); border-bottom:2px solid var(--cocoa); }
+  .nav-icon{ font-size:15px; width:18px; text-align:center; }
+  .profile{ padding:14px 18px; border-top:1px solid var(--border); display:flex; align-items:center; gap:10px; }
+  .avatar{ width:34px;height:34px;border-radius:50%; background:linear-gradient(135deg,var(--gold),var(--terracotta)); flex-shrink:0; }
+  .profile-name{ font-size:13px; font-weight:700; }
+  .profile-sub{ font-size:11px; color:var(--ink-soft); cursor:pointer; text-decoration:underline; }
+
+  .main{ flex:1; min-width:0; display:flex; flex-direction:column; }
+  .topbar{ padding:20px 32px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border); }
+  .topbar h1{ font-size:24px; margin:0; font-weight:600; }
+  .topbar-sub{ font-size:12.5px; color:var(--ink-soft); margin-top:2px; }
+  .content{ padding:26px 32px 60px; }
+  .view{ display:none; } .view.active{ display:block; }
+
+  .grid4{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+  .grid2{ display:grid; grid-template-columns:1.4fr 1fr; gap:16px; margin-bottom:20px; }
+  @media (max-width:1100px){ .grid4{grid-template-columns:repeat(2,1fr);} .grid2{grid-template-columns:1fr;} }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; box-shadow:var(--shadow); }
+  .card-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); font-weight:700; margin-bottom:8px; }
+  .card-value{ font-size:26px; font-weight:700; font-family:'Fraunces',serif; }
+  .card-foot{ font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .tag{ display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:20px; }
+  .tag-critical{ background:var(--critical-bg); color:var(--critical); }
+  .tag-ok{ background:var(--ok-bg); color:var(--ok); }
+  .tag-gold{ background:#FBF0DC; color:#9A6C1E; }
+
+  .section-title{ font-size:16px; font-weight:700; margin:0 0 2px; }
+  .section-sub{ font-size:12.5px; color:var(--ink-soft); margin:0 0 14px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:700; padding:9px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:11px 10px; border-bottom:1px solid #F1E7D8; vertical-align:middle; }
+  tr:last-child td{ border-bottom:none; }
+  .num{ text-align:right; font-family:'JetBrains Mono',monospace; }
+
+  .btn{ border:none; border-radius:8px; padding:10px 16px; font-size:13.5px; font-weight:700; cursor:pointer; font-family:'Public Sans',sans-serif; }
+  .btn-primary{ background:var(--cocoa); color:#fff; } .btn-primary:hover{ background:var(--cocoa-deep); }
+  .btn-outline{ background:transparent; border:1px solid var(--border); color:var(--ink); } .btn-outline:hover{ background:#F6EBDC; }
+  .btn-navy{ background:var(--navy); color:#fff; }
+  .btn-ghost{ background:transparent; border:1px solid var(--border); color:var(--ink-soft); font-weight:600; }
+  .pill-btn{ border:1px solid var(--border); background:var(--surface); border-radius:7px; padding:6px 12px; font-size:12px; font-weight:600; cursor:pointer; }
+  .pill-btn:hover{ background:#F6EBDC; }
+
+  .form-row{ display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .form-row > div{ flex:1; min-width:130px; }
+  .form-row input, .form-row select{ width:100%; font-family:'Public Sans',sans-serif; border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:13px; background:#FCF8F1; }
+  label.small{ font-size:11px; color:var(--ink-soft); display:block; margin-bottom:4px; font-weight:600; }
+
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--ink-soft); }
+  .empty-state .big{ font-size:32px; margin-bottom:8px; }
+  .empty-state b{ color:var(--ink); }
+
+  .ai-box{ background:linear-gradient(135deg,#FBF0DC,#F7E3CE); border:1px solid #EAD3A9; border-radius:12px; padding:16px 18px; display:flex; gap:12px; align-items:flex-start; }
+  .ai-badge{ width:30px;height:30px;border-radius:8px;background:var(--cocoa); color:#fff; display:flex;align-items:center;justify-content:center; font-size:14px; flex-shrink:0; }
+  .ai-box p{ margin:0; font-size:13.5px; line-height:1.55; }
+  .ai-box .ai-title{ font-weight:700; font-size:12.5px; margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; color:var(--cocoa-deep); }
+
+  .preview-note{ font-size:11.5px; color:#9A6C1E; background:#FBF0DC; border:1px solid #EAD3A9; padding:6px 10px; border-radius:7px; display:inline-block; margin-bottom:12px; }
+  .toast{ position:fixed; bottom:24px; right:24px; background:var(--ink); color:#fff; padding:11px 18px; border-radius:9px; font-size:13px; box-shadow:var(--shadow); display:none; z-index:50; }
+  ::-webkit-scrollbar{ width:9px; height:9px; } ::-webkit-scrollbar-thumb{ background:#E4D4BC; border-radius:6px; }
+</style>
+</head>
+<body>
+<div class="kente"></div>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">ROMS Ghana</div>
+    <div class="auth-sub">Restaurant Operations, per business.</div>
+    <div class="auth-tabs">
+      <div class="auth-tab active" data-mode="login">Log in</div>
+      <div class="auth-tab" data-mode="register">Create business account</div>
+    </div>
+
+    <div id="registerFields" style="display:none;">
+      <div id="regStepIndicator" style="font-size:11px; color:var(--ink-soft); font-weight:700; margin-bottom:10px;">STEP 1 OF 2 — ABOUT YOUR BUSINESS</div>
+      <div id="regStep1">
+        <label class="small">Business name</label>
+        <input id="regBusiness" placeholder="e.g. Auntie Ama Chop Bar">
+        <label class="small">Your name</label>
+        <input id="regName" placeholder="e.g. Ama Owusu">
+        <label class="small">Business type</label>
+        <select id="regBusinessType">
+          <option value="Restaurant">Restaurant</option>
+          <option value="Chop bar">Chop bar</option>
+          <option value="Fast food">Fast food</option>
+          <option value="Cafe">Café</option>
+          <option value="Bakery">Bakery</option>
+          <option value="Catering">Catering</option>
+          <option value="Other">Other</option>
+        </select>
+        <label class="small">Number of branches</label>
+        <input id="regBranchCount" type="number" value="1" min="1">
+        <label class="small">Phone number</label>
+        <input id="regPhone" placeholder="024 000 0000">
+        <button type="button" class="auth-submit" id="regNextBtn" style="margin-top:14px;">Next →</button>
+      </div>
+      <div id="regStep2" style="display:none;">
+        <label class="small">Invite code (if you have one)</label>
+        <input id="regInviteCode" placeholder="Optional — leave blank if you don't have one">
+        <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;margin-bottom:10px;">New accounts are reviewed before activation — you'll get an email once approved, usually within a day.</div>
+      </div>
+    </div>
+    <div id="credentialsFields">
+      <label class="small">Email</label>
+      <input id="authEmail" type="email" placeholder="you@business.com">
+      <label class="small">Password</label>
+      <input id="authPassword" type="password" placeholder="••••••••">
+    </div>
+    <div class="auth-error" id="authError"></div>
+    <div id="twofaPrompt" style="display:none;">
+      <label class="small">Enter the 6-digit code from your authenticator app</label>
+      <input id="twofaCode" inputmode="numeric" maxlength="6" placeholder="123456">
+      <button class="auth-submit" id="twofaSubmit" style="margin-top:12px;">Verify &amp; log in</button>
+    </div>
+    <button class="auth-submit" id="authSubmit">Log in</button>
+    <div id="forgotPasswordLink" style="text-align:center; margin-top:12px;">
+      <a href="#" onclick="showForgotPassword(); return false;" style="font-size:12px; color:var(--ink-soft); text-decoration:underline;">Forgot password?</a>
+    </div>
+    <div id="forgotPasswordForm" style="display:none;">
+      <label class="small">Email address</label>
+      <input id="forgotEmail" type="email" placeholder="you@business.com">
+      <button class="auth-submit" id="forgotSubmitBtn" style="margin-top:12px;">Send reset link</button>
+      <div class="auth-foot"><a href="#" onclick="hideForgotPassword(); return false;" style="text-decoration:underline;">Back to log in</a></div>
+    </div>
+    <div id="resetPasswordForm" style="display:none;">
+      <label class="small">New password</label>
+      <input id="resetNewPassword" type="password" placeholder="8+ chars, with upper, lower &amp; a number">
+      <button class="auth-submit" id="resetSubmitBtn" style="margin-top:12px;">Set new password</button>
+    </div>
+    <div class="auth-foot">Every business gets its own private, empty workspace — nothing is shared between companies.</div>
+    
+  </div>
+</div>
+
+<div id="pendingApprovalScreen" style="display:none;">
+  <div class="auth-card" style="text-align:center;">
+    <div style="font-size:40px; margin-bottom:12px;">⏳</div>
+    <div class="auth-brand" style="font-size:19px;">Your account is being reviewed</div>
+    <p style="font-size:13px; color:var(--ink-soft); margin:14px 0;">Thanks for signing up! A real person checks every new business before activating it — you'll get an email as soon as yours is approved, usually within a day.</p>
+    <div id="rejectedNotice" style="display:none; background:var(--critical-bg); color:var(--critical); padding:10px; border-radius:8px; font-size:13px; margin-bottom:14px;">This account wasn't approved. If you think that's a mistake, please get in touch.</div>
+    <button class="auth-submit" id="pendingLogoutBtn">Log out</button>
+  </div>
+</div>
+
+<!-- ============ APP ============ -->
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-name" id="sidebarBrand">ROMS Ghana</div>
+      <div class="brand-sub">Restaurant Operations</div>
+    </div>
+    <nav id="navList">
+      <div class="nav-item active" data-group="dashboard"><span class="nav-icon">◈</span> Dashboard</div>
+      <div class="nav-item" data-group="operations"><span class="nav-icon">🍳</span> Operations</div>
+      <div class="nav-item" data-group="sales"><span class="nav-icon">💰</span> Sales</div>
+      <div class="nav-item" data-group="team"><span class="nav-icon">✦</span> Team</div>
+      <div class="nav-item" data-group="insights"><span class="nav-icon">▦</span> Insights</div>
+      <div class="nav-item" data-group="settings"><span class="nav-icon">⚙</span> Settings</div>
+    </nav>
+    <div class="profile">
+      <div class="avatar"></div>
+      <div>
+        <div class="profile-name" id="profileName">—</div>
+        <div class="profile-sub" id="logoutBtn">Log out</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div id="renewalWarningBanner" style="display:none; background:#FBF0DC; color:#9A6C1E; padding:10px 32px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
+      <span id="renewalWarningText"></span>
+      <a href="#" onclick="switchToView('settings'); return false;" style="color:#9A6C1E; text-decoration:underline; font-weight:700;">Renew now →</a>
+    </div>
+    <div id="paymentBanner" style="display:none; background:var(--critical-bg); color:var(--critical); padding:10px 32px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
+      <span>⚠ Your trial or payment has expired. You can still view everything — adding or changing anything is paused until you renew.</span>
+      <a href="#" onclick="switchToView('settings'); return false;" style="color:var(--critical); text-decoration:underline; font-weight:700;">Renew now →</a>
+    </div>
+    <div id="emailVerifyBanner" style="display:none; background:#FBF0DC; color:#9A6C1E; padding:10px 32px; font-size:13px; font-weight:600; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <span>📧 Verify your email — check your inbox for a 6-digit code.</span>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <input id="emailVerifyCode" placeholder="6-digit code" style="width:110px; padding:6px 10px; border-radius:6px; border:1px solid #EAD3A9;">
+        <button class="pill-btn" id="emailVerifySubmit">Verify</button>
+        <button class="pill-btn" id="emailVerifyResend">Resend code</button>
+      </div>
+    </div>
+    <div class="topbar">
+      <div>
+        <h1 id="viewTitle">Dashboard</h1>
+        <div class="topbar-sub" id="viewSub">Loading your business…</div>
+      </div>
+    </div>
+    <div id="subTabBar" style="display:none; padding:0 32px 14px; gap:8px; flex-wrap:wrap; border-bottom:1px solid var(--border); background:var(--surface);"></div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="view active" id="view-dashboard">
+        <div class="grid4" id="dashCards"></div>
+        <div class="card" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div class="section-title" style="margin-bottom:0;">Daily Business Coach</div>
+              <div class="section-sub" style="margin-bottom:0;">A specific, plain-English read on your real numbers — not a template.</div>
+            </div>
+            <button class="btn btn-primary" id="getBriefBtn">Get today's advice</button>
+          </div>
+          <div id="aiBriefBox" style="display:none; margin-top:14px;">
+            <div class="ai-box"><div class="ai-badge">✦</div><p id="aiBriefText"></p></div>
+          </div>
+        </div>
+        <div id="dashBody"></div>
+      </div>
+
+      <!-- FRONT OF HOUSE: TABLES & WAITLIST -->
+      <div class="view" id="view-foh">
+        <div class="grid2">
+          <div class="card">
+            <div class="section-title">Floor</div>
+            <div class="section-sub">Tap a table to cycle its status.</div>
+            <div class="form-row">
+              <div><input id="tableName" placeholder="e.g. Table 5"></div>
+              <div><input id="tableSeats" type="number" placeholder="Seats" value="4"></div>
+              <div><button class="btn btn-primary" id="addTableBtn">Add table</button></div>
+            </div>
+            <div id="tablesGrid" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+            <div id="tablesEmpty" class="empty-state" style="display:none;"><div class="big">🪑</div>No tables added yet.</div>
+          </div>
+          <div class="card">
+            <div class="section-title">Waitlist</div>
+            <div class="form-row">
+              <div><input id="waitName" placeholder="Name"></div>
+              <div><input id="waitParty" type="number" placeholder="Party size" value="2"></div>
+              <div><input id="waitPhone" placeholder="Phone (optional)"></div>
+              <div><input id="waitMins" type="number" placeholder="Quoted wait (min)"></div>
+              <div><button class="btn btn-primary" id="addWaitBtn">Add to waitlist</button></div>
+            </div>
+            <table><thead><tr><th>Name</th><th class="num">Party</th><th>Quoted wait</th><th>Status</th><th></th></tr></thead><tbody id="waitBody"></tbody></table>
+            <div id="waitEmpty" class="empty-state" style="display:none;"><div class="big">⏱</div>No one waiting right now.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FOOD SAFETY -->
+      <div class="view" id="view-foodsafety">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Log a temperature check</div>
+          <div class="form-row">
+            <div><label class="small">Location</label><input id="tempLocation" placeholder="e.g. Walk-in fridge"></div>
+            <div><label class="small">Temperature (°C)</label><input id="tempValue" type="number" step="0.1"></div>
+            <div><label class="small">Checked by</label><input id="tempBy" placeholder="Your name"></div>
+            <div><label class="small">Within safe range?</label><select id="tempPass"><option value="1">Yes — pass</option><option value="0">No — flag it</option></select>
+              <div id="tempAutoHint" style="font-size:11px;color:var(--ink-soft);margin-top:3px;"></div>
+            </div>
+            <div><label class="small">Notes (if flagged)</label><input id="tempNotes"></div>
+            <div style="align-self:flex-end;"><button class="btn btn-primary" id="addTempBtn">Log check</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Recent checks</div>
+          <table><thead><tr><th>Location</th><th class="num">Temp (°C)</th><th>Status</th><th>Checked by</th><th>Notes</th><th>When</th><th></th></tr></thead><tbody id="tempBody"></tbody></table>
+          <div id="tempEmpty" class="empty-state" style="display:none;"><div class="big">🌡</div>No checks logged yet.</div>
+        </div>
+      </div>
+
+      <!-- MENU & DISH COSTS -->
+      <div class="view" id="view-menu">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Faster ways to add dishes</div>
+          <div class="form-row" style="align-items:flex-end;">
+            <div>
+              <label class="small">Import from spreadsheet</label>
+              <input type="file" id="dishCsvFile" accept=".csv,.xlsx,.xls">
+              <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Columns: name, serves, selling_price, target_margin, ingredients (e.g. "250g rice:3.63; 120g chicken:7.80")</div>
+            </div>
+            <div><button class="btn btn-primary" id="dishCsvBtn">Import</button></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div class="section-title" style="margin-bottom:0;">Menu Suggestions</div>
+              <div class="section-sub" style="margin-bottom:0;">What to promote, reprice, or reconsider — based on real margin and sales together, not margin alone.</div>
+            </div>
+            <button class="btn btn-primary" id="getMenuSuggestionsBtn">Get suggestions</button>
+          </div>
+          <div id="menuSuggestionsBox" style="display:none; margin-top:14px;">
+            <div class="ai-box"><div class="ai-badge">✦</div><p id="menuSuggestionsText" style="white-space:pre-line;"></p></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Add a dish</div>
+          <div class="section-sub">Ingredient cost lines add up to your gross cost; margin recalculates as you type.</div>
+          <div class="form-row">
+            <div><label class="small">Dish name</label><input id="dishName" placeholder="e.g. Jollof + Chicken"></div>
+            <div><label class="small">Serves</label><input id="dishServes" type="number" value="1"></div>
+            <div><label class="small">Selling price (GH₵)</label><input id="dishPrice" type="number" step="0.5" id="dishPriceInput"></div>
+            <div><label class="small">Target margin %</label><input id="dishTargetMargin" type="number" value="40"></div>
+          </div>
+          <table>
+            <thead><tr><th>Inventory item</th><th style="width:100px;">Quantity</th><th style="width:110px;">Cost (GH₵)</th><th style="width:36px;"></th></tr></thead>
+            <tbody id="dishIngRows"></tbody>
+          </table>
+          <div style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+            <button class="pill-btn" id="addIngRow">+ Add ingredient line</button>
+          </div>
+          <div class="ai-box" style="margin-top:14px;">
+            <div class="ai-badge">💰</div>
+            <div style="flex:1;">
+              <div class="ai-title">Dish Profit Breakdown</div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; font-size:13px;">
+                <div><span style="color:var(--ink-soft);">Real cost</span><br><b class="mono" id="liveCost">GH₵ 0.00</b></div>
+                <div><span style="color:var(--ink-soft);">Selling price</span><br><b class="mono" id="liveSellingPrice">GH₵ 0.00</b></div>
+                <div><span style="color:var(--ink-soft);">Profit per plate</span><br><b class="mono" id="liveProfit">GH₵ 0.00</b></div>
+                <div><span style="color:var(--ink-soft);">Current margin</span><br><b class="mono" id="liveMargin">0%</b></div>
+                <div><span style="color:var(--ink-soft);">Target margin</span><br><b class="mono" id="liveTargetMarginDisplay">40%</b></div>
+                <div><span style="color:var(--ink-soft);">Price to hit target</span><br><b class="mono" id="liveRecommendedPrice">GH₵ 0.00</b></div>
+              </div>
+              <p id="liveAdvice" style="margin:10px 0 0; font-size:12.5px;"></p>
+            </div>
+          </div>
+          <button class="btn btn-primary" style="margin-top:14px;" id="saveDishBtn">Save dish</button>
+        </div>
+        <div class="card">
+          <div class="section-title">Your dishes</div>
+          <table id="dishTable">
+            <thead><tr><th>Dish</th><th class="num">Cost</th><th class="num">Price</th><th class="num">Margin</th><th></th></tr></thead>
+            <tbody id="dishBody"></tbody>
+          </table>
+          <div id="dishEmpty" class="empty-state" style="display:none;">
+            <div class="big">🍲</div>
+            No dishes yet — add your first one above and its margin will show here instantly.
+          </div>
+        </div>
+      </div>
+
+      <!-- INVENTORY -->
+      <div class="view" id="view-inventory">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Faster ways to fill this in</div>
+          <div class="section-sub">Pick whichever fits how you already keep this information.</div>
+          <div class="form-row" style="align-items:flex-end;">
+            <div>
+              <label class="small">Load Ghanaian starter kit</label>
+              <button class="btn btn-outline" id="seedStarterBtn">Load common ingredients + dishes</button>
+              <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Only works on a brand-new, empty business.</div>
+            </div>
+            <div>
+              <label class="small">Import a spreadsheet</label>
+              <input type="file" id="invCsvFile" accept=".csv,.xlsx,.xls">
+              <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Columns: name, category, unit, unit_cost, qty_on_hand, reorder_level, shelf_life_days</div>
+            </div>
+            <div><button class="btn btn-primary" id="invCsvBtn">Import CSV</button></div>
+            <div>
+              <label class="small">Scan a receipt (experimental)</label>
+              <input type="file" id="ocrFile" accept="image/*">
+            </div>
+            <div><button class="btn btn-outline" id="ocrBtn">Scan &amp; review</button></div>
+          </div>
+          <div id="ocrResults" style="display:none; margin-top:14px;">
+            <div class="section-sub">Review before adding — OCR isn't perfect, especially on handwriting. Edit anything wrong, then add each row you want.</div>
+            <table><thead><tr><th>Detected name</th><th class="num">Detected price</th><th></th></tr></thead><tbody id="ocrRows"></tbody></table>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title" id="invFormTitle">Add stock item</div>
+          <div class="form-row">
+            <div><label class="small">Name</label><input id="invName" placeholder="e.g. Tomatoes"></div>
+            <div><label class="small">Category</label><input id="invCategory" placeholder="e.g. Produce"></div>
+            <div><label class="small">Unit</label><input id="invUnit" placeholder="kg / bag / bottle"></div>
+            <div><label class="small">Unit cost (GH₵)</label><input id="invUnitCost" type="number" step="0.01"></div>
+            <div><label class="small">Qty on hand</label><input id="invQty" type="number" step="0.1"></div>
+            <div><label class="small">Reorder level</label><input id="invReorder" type="number" step="0.1"></div>
+            <div><label class="small">Shelf life (days)</label><input id="invShelf" type="number"></div>
+            <div><label class="small">Branch</label><select id="invBranch"><option value="">All / not branch-specific</option></select></div>
+            <div style="align-self:flex-end; display:flex; gap:8px;">
+              <button class="btn btn-primary" id="addInvBtn">Add</button>
+              <button class="btn btn-ghost" id="cancelInvEditBtn" style="display:none;">Cancel</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Master Inventory</div>
+          <table>
+            <thead><tr><th>Ingredient</th><th class="num">On Hand</th><th class="num">Unit Cost</th><th class="num">Days left</th><th>Branch</th><th>Status</th><th></th></tr></thead>
+            <tbody id="invBody"></tbody>
+          </table>
+          <div id="invEmpty" class="empty-state" style="display:none;">
+            <div class="big">📦</div>
+            No inventory yet — add your first ingredient above, load the starter kit, or import a spreadsheet.
+          </div>
+        </div>
+      </div>
+
+      <!-- WASTE -->
+      <div class="view" id="view-waste">
+        <div class="grid3" id="wasteCards"></div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Log a waste event</div>
+          <div class="form-row">
+            <div><label class="small">Ingredient</label><input id="wIngredient" placeholder="e.g. Tomatoes"></div>
+            <div><label class="small">Quantity</label><input id="wQty" placeholder="2.5 kg"></div>
+            <div><label class="small">Est. cost (GH₵)</label><input id="wCost" type="number"></div>
+            <div><label class="small">Reason</label>
+              <select id="wReason"><option>Spoiled</option><option>Over-ordering</option><option>Burnt</option><option>Dropped</option><option>Expired</option><option>Customer returned</option><option>Wrong order made</option><option>Staff mistake</option><option>Power outage</option></select>
+            </div>
+            <div style="align-self:flex-end;"><button class="btn btn-primary" id="addWasteBtn">Log entry</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Waste log</div>
+          <table><thead><tr><th>Ingredient</th><th class="num">Qty</th><th class="num">Cost</th><th>Reason</th><th>Logged</th><th></th></tr></thead><tbody id="wasteBody"></tbody></table>
+          <div id="wasteEmpty" class="empty-state" style="display:none;"><div class="big">🗑</div>Nothing logged yet — waste entries you add will show up here and roll into this month's total above.</div>
+        </div>
+      </div>
+
+      <!-- SUPPLIERS -->
+      <div class="view" id="view-suppliers">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Add a supplier</div>
+          <div class="form-row">
+            <div><label class="small">Supplier name</label><input id="supName"></div>
+            <div><label class="small">Item</label><input id="supItem"></div>
+            <div><label class="small">Price (GH₵)</label><input id="supPrice" type="number"></div>
+            <div><label class="small">Late deliveries %</label><input id="supLate" type="number"></div>
+            <div><label class="small">Quality note</label><input id="supQuality" placeholder="Good / Fair / Excellent"></div>
+            <div style="align-self:flex-end;"><button class="btn btn-primary" id="addSupBtn">Add</button></div>
+          </div>
+        </div>
+        <div id="supRecommendations" style="margin-bottom:20px;"></div>
+        <div class="card">
+          <div class="section-title">Supplier comparison</div>
+          <table><thead><tr><th>Supplier</th><th>Item</th><th class="num">Price</th><th class="num">Late %</th><th>Quality</th><th class="num">Reliability</th><th></th></tr></thead><tbody id="supBody"></tbody></table>
+          <div id="supEmpty" class="empty-state" style="display:none;"><div class="big">🚚</div>Add suppliers above to start comparing price against reliability.</div>
+        </div>
+      </div>
+
+      <!-- INVOICES -->
+      <div class="view" id="view-invoices">
+        <div class="grid2">
+          <div class="card">
+            <div class="section-title">New invoice</div>
+            <label class="small">Customer / company</label>
+            <input id="invCustomer" placeholder="e.g. Melcom Head Office" style="width:100%; margin-bottom:6px;">
+            <select id="invCustomerId" style="width:100%; margin-bottom:12px;"><option value="">— not a returning customer (walk-in) —</option></select>
+            <div style="display:flex; gap:10px; margin-bottom:12px;">
+              <div style="flex:1;"><label class="small">Paid via</label>
+                <select id="invPaymentMethod" style="width:100%;">
+                  <option value="cash">Cash</option>
+                  <option value="momo">Mobile Money</option>
+                  <option value="pos">Card / POS</option>
+                  <option value="credit">Credit (pay later)</option>
+                </select>
+              </div>
+              <div style="flex:1;"><label class="small">Served by</label>
+                <select id="invStaffId" style="width:100%;"><option value="">— not tracked —</option></select>
+              </div>
+            </div>
+            <table><thead><tr><th>Item</th><th style="width:70px;">Qty</th><th style="width:100px;">Price</th><th class="num" style="width:90px;">Total</th></tr></thead><tbody id="invoiceRows"></tbody></table>
+            <button class="pill-btn" id="addInvRow" style="margin-top:10px;">+ Add line item</button>
+            <div style="margin-top:16px;">
+              <label class="small">Tax treatment</label>
+              <div style="display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; width:fit-content;">
+                <div class="tax-opt" data-rate="0.219" style="padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;background:var(--cocoa);color:#fff;">Standard (≈21.9%)</div>
+                <div class="tax-opt" data-rate="0.03" style="padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;">VAT Flat Rate (3%)</div>
+              </div>
+              <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">Estimate only — confirm your current GRA rate/registration type.</div>
+            </div>
+            <div style="margin-top:14px;">
+              <label class="small">Tip / gratuity (GH₵, optional)</label>
+              <input id="invTip" type="number" step="0.5" placeholder="0" style="width:140px;">
+            </div>
+            <button class="btn btn-primary" style="margin-top:14px;" id="createInvoiceBtn">Generate invoice</button>
+          </div>
+          <div class="card">
+            <div class="section-title">Summary</div>
+            <table><tr><td>Subtotal</td><td class="num">GH₵ <span id="invSubtotal">0.00</span></td></tr>
+              <tr><td>Tax</td><td class="num">GH₵ <span id="invTax">0.00</span></td></tr>
+              <tr><td>Tip</td><td class="num">GH₵ <span id="invTipDisplay">0.00</span></td></tr>
+              <tr><td style="font-weight:700;">Total due</td><td class="num" style="font-weight:700;">GH₵ <span id="invTotal">0.00</span></td></tr></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Past invoices</div>
+          <table><thead><tr><th>Customer</th><th class="num">Subtotal</th><th class="num">Tax</th><th class="num">Total</th><th>Status</th><th>Date</th><th></th></tr></thead><tbody id="invoiceHistBody"></tbody></table>
+          <div id="invEmpty2" class="empty-state" style="display:none;"><div class="big">🧾</div>No invoices yet — your first one will appear here.</div>
+        </div>
+      </div>
+
+      <!-- CASH RECONCILIATION & PURCHASE ORDERS -->
+      <div class="view" id="view-cashpo">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">End-of-day cash count</div>
+          <div class="section-sub">"Expected" is auto-computed from today's invoices by payment method. Count the drawer/MoMo/POS totals yourself and enter them below — a gap between the two is worth a look, not an accusation.</div>
+          <div class="form-row">
+            <div><label class="small">Date</label><input id="reconDate" type="date"></div>
+            <div><label class="small">Counted by</label><input id="reconCountedBy" placeholder="e.g. Kwame"></div>
+            <div style="align-self:flex-end;"><button class="pill-btn" id="reconLoadExpectedBtn">↻ Pull today's expected totals</button></div>
+          </div>
+          <table style="margin-top:12px;">
+            <thead><tr><th></th><th class="num">Expected (GH₵)</th><th class="num">Actual counted (GH₵)</th><th class="num">Difference</th></tr></thead>
+            <tbody>
+              <tr><td>Cash</td><td class="num"><input id="reconCashExpected" type="number" step="0.01" style="width:100px;text-align:right;"></td><td class="num"><input id="reconCashActual" type="number" step="0.01" style="width:100px;text-align:right;" oninput="updateReconDiff()"></td><td class="num mono" id="reconCashDiff">—</td></tr>
+              <tr><td>Mobile Money</td><td class="num"><input id="reconMomoExpected" type="number" step="0.01" style="width:100px;text-align:right;"></td><td class="num"><input id="reconMomoActual" type="number" step="0.01" style="width:100px;text-align:right;" oninput="updateReconDiff()"></td><td class="num mono" id="reconMomoDiff">—</td></tr>
+              <tr><td>Card / POS</td><td class="num"><input id="reconPosExpected" type="number" step="0.01" style="width:100px;text-align:right;"></td><td class="num"><input id="reconPosActual" type="number" step="0.01" style="width:100px;text-align:right;" oninput="updateReconDiff()"></td><td class="num mono" id="reconPosDiff">—</td></tr>
+            </tbody>
+          </table>
+          <label class="small" style="margin-top:10px;display:block;">Notes (optional)</label>
+          <input id="reconNotes" placeholder="e.g. GH₵5 short, likely a miscounted change">
+          <button class="btn btn-primary" style="margin-top:14px;" id="reconSaveBtn">Save count</button>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Reconciliation history</div>
+          <table><thead><tr><th>Date</th><th>Counted by</th><th class="num">Total expected</th><th class="num">Total actual</th><th class="num">Difference</th><th>Notes</th><th></th></tr></thead><tbody id="reconHistBody"></tbody></table>
+          <div id="reconEmpty" class="empty-state" style="display:none;"><div class="big">💵</div>No cash counts logged yet.</div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Reorder what's running low</div>
+          <div id="poSuggestions"></div>
+        </div>
+        <div class="card">
+          <div class="section-title">Purchase orders</div>
+          <table><thead><tr><th>#</th><th>Supplier</th><th>Items</th><th class="num">Total cost</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody id="poBody"></tbody></table>
+          <div id="poEmpty" class="empty-state" style="display:none;"><div class="big">📦</div>No purchase orders yet.</div>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="view" id="view-customers">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Import from a spreadsheet</div>
+          <div class="form-row" style="align-items:flex-end;">
+            <div><label class="small">Spreadsheet (CSV or Excel)</label><input type="file" id="custCsvFile" accept=".csv,.xlsx,.xls">
+              <div style="font-size:11px;color:var(--ink-soft);margin-top:4px;">Columns: name, phone, birthday</div>
+            </div>
+            <div><button class="btn btn-primary" id="custCsvBtn">Import</button></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Add a customer</div>
+          <div class="form-row">
+            <div><label class="small">Name</label><input id="custName"></div>
+            <div><label class="small">Phone</label><input id="custPhone"></div>
+            <div><label class="small">Birthday</label><input id="custBday" placeholder="e.g. Aug 2"></div>
+            <div style="align-self:flex-end;"><button class="btn btn-primary" id="addCustBtn">Add</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Customer log</div>
+          <table><thead><tr><th>Name</th><th>Phone</th><th>Tier</th><th class="num">Visits</th><th class="num">Lifetime spend</th><th>Favorite</th><th>Last visit</th><th>Birthday</th><th></th></tr></thead><tbody id="custBody"></tbody></table>
+          <div id="custEmpty" class="empty-state" style="display:none;"><div class="big">☺</div>No customers logged yet.</div>
+        </div>
+      </div>
+
+      <!-- STAFF -->
+      <div class="view" id="view-staff">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Add staff member</div>
+          <div class="section-sub">"Voids" = orders a staff member cancelled or refunded after ringing them up — a normal part of service, but a sudden spike from one person is worth a quiet conversation. Not an accusation, just a pattern to notice.</div>
+          <div class="form-row">
+            <div><label class="small">Name</label><input id="staffName"></div>
+            <div><label class="small">Role</label><input id="staffRole" placeholder="Cook / Cashier / Server"></div>
+            <div style="align-self:flex-end;"><button class="btn btn-primary" id="addStaffBtn">Add</button></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="section-title">Team</div>
+          <table><thead><tr><th>Name</th><th>Role</th><th class="num">Orders served</th><th class="num">Voids</th><th class="num">Sales this month</th><th class="num">Avg order</th><th class="num">Void rate</th><th></th></tr></thead><tbody id="staffBody"></tbody></table>
+          <div id="staffEmpty" class="empty-state" style="display:none;"><div class="big">✦</div>No staff added yet.</div>
+        </div>
+      </div>
+
+      <!-- REPORTS -->
+      <div class="view" id="view-reports">
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Ask for a report</div>
+          <div class="section-sub">Type a question — "show me last month's waste", "sales by dish this week", "staff performance this month". Covers revenue, waste, dish sales, staff performance, and cash reconciliation.</div>
+          <div style="display:flex; gap:10px;">
+            <input id="nlReportQuery" placeholder="e.g. show me this month's waste by ingredient" style="flex:1;">
+            <button class="btn btn-primary" id="nlReportBtn">Ask</button>
+          </div>
+          <div id="nlReportResult" style="margin-top:14px; display:none;"></div>
+        </div>
+        <div class="card" style="margin-bottom:20px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div class="section-title" style="margin-bottom:0;">Export for analysis</div>
+            <div class="section-sub" style="margin-bottom:0;">A structured PDF — revenue, dish margins, waste, low stock, branch comparison — for an accountant, analyst, or engineer.</div>
+          </div>
+          <a class="btn btn-primary" id="pdfExportBtn" href="/api/reports/pdf" target="_blank">Download PDF report</a>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Business Health Score</div>
+          <div class="section-sub">Seven categories, each computed from your real data — starts neutral (50) until you have enough activity to score fairly.</div>
+          <div style="display:flex; gap:24px; align-items:center; flex-wrap:wrap;">
+            <svg width="110" height="110" viewBox="0 0 120 120" style="flex-shrink:0;">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#F1E7D8" stroke-width="12"/>
+              <circle id="healthRing" cx="60" cy="60" r="50" fill="none" stroke="var(--forest)" stroke-width="12"
+                stroke-dasharray="314" stroke-dashoffset="157" stroke-linecap="round" transform="rotate(-90 60 60)"/>
+              <text id="healthScoreNum" x="60" y="66" text-anchor="middle" font-family="Fraunces,serif" font-size="26" font-weight="700" fill="var(--ink)">50</text>
+            </svg>
+            <div id="healthBars" style="flex:1; min-width:280px;"></div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Recommendations</div>
+          <div class="section-sub">Specific to your data this month — the same list included at the end of the PDF export.</div>
+          <div id="narrativeInsights"></div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="section-title">Revenue — last 7 days</div>
+            <canvas id="revenueChart" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="section-title">Waste by ingredient — this month</div>
+            <canvas id="wasteChart" height="180"></canvas>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:20px;">
+          <div class="section-title">Top-ordered items</div>
+          <canvas id="topItemsChart" height="120"></canvas>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="section-title">Sales by hour of day — this month</div>
+            <div class="section-sub">Shows when you're actually busy, to help with staffing and prep timing.</div>
+            <canvas id="salesByHourChart" height="180"></canvas>
+          </div>
+          <div class="card">
+            <div class="section-title">Best &amp; worst sellers — this month</div>
+            <table><thead><tr><th>Dish</th><th class="num">Sold</th><th class="num">Revenue</th></tr></thead><tbody id="salesByDishBody"></tbody></table>
+            <div id="salesByDishEmpty" class="empty-state" style="display:none;"><div class="big">🍽</div>No sales recorded yet this month.</div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div class="card">
+            <div class="section-title">This month, from your real data</div>
+            <div id="reportsBody" style="font-size:13.5px; line-height:2;"></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Break-even calculator</div>
+            <div class="form-row">
+              <div><label class="small">Fixed costs / month (GH₵)</label><input id="beFixed" type="number" value="0"></div>
+              <div><label class="small">Avg. profit / plate (GH₵)</label><input id="beProfit" type="number" value="1"></div>
+            </div>
+            <div class="ai-box"><div class="ai-badge">=</div><p>You need to sell <b id="beResult">0</b> plates this month to break even — about <b id="bePerDay">0</b> a day.</p></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:20px;" id="branchReportCard">
+          <div class="section-title">Branch comparison</div>
+          <div class="section-sub">Only meaningful once you've added more than one branch under Settings.</div>
+          <table><thead><tr><th>Branch</th><th class="num">Revenue this month</th><th class="num">Waste</th><th class="num">Dishes</th></tr></thead><tbody id="branchReportBody"></tbody></table>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <div style="display:flex; gap:4px; margin-bottom:20px; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+          <div class="sub-tab active" data-settings-tab="business">Business</div>
+          <div class="sub-tab" data-settings-tab="security">Security</div>
+          <div class="sub-tab" data-settings-tab="billing">Billing</div>
+          <div class="sub-tab" data-settings-tab="branches">Branches</div>
+          <div class="sub-tab" data-settings-tab="appearance">Appearance</div>
+        </div>
+
+        <div class="settings-panel" data-settings-panel="business">
+          <div class="card">
+            <div class="section-title">Business settings</div>
+            <div class="form-row">
+              <div><label class="small">Business name</label><input id="setBizName"></div>
+              <div><label class="small">Currency</label><input id="setCurrency"></div>
+              <div><label class="small">MoMo number</label><input id="setMomo"></div>
+            </div>
+            <div class="section-sub" style="margin-top:14px;">Ghana taxes — update these if national rates ever change. Each one can be switched off if it doesn't apply to you.</div>
+            <div class="form-row">
+              <div><label class="small">VAT rate (%)</label><input id="setVatRate" type="number" step="0.1"></div>
+              <div><label class="small">VAT enabled</label><select id="setVatEnabled"><option value="1">On</option><option value="0">Off</option></select></div>
+              <div><label class="small">NHIL rate (%)</label><input id="setNhilRate" type="number" step="0.1"></div>
+              <div><label class="small">NHIL enabled</label><select id="setNhilEnabled"><option value="1">On</option><option value="0">Off</option></select></div>
+              <div><label class="small">Tourism Levy rate (%)</label><input id="setTourismRate" type="number" step="0.1"></div>
+              <div><label class="small">Tourism Levy enabled</label><select id="setTourismEnabled"><option value="0">Off</option><option value="1">On</option></select></div>
+            </div>
+            <button class="btn btn-primary" id="saveSettingsBtn">Save settings</button>
+          </div>
+          <div class="card" style="margin-top:20px;">
+            <div class="section-title">Automatic reordering</div>
+            <div class="section-sub">Off by default. When on, a purchase order is placed automatically — no review step — the moment an ingredient hits its reorder level, but <b>only</b> if you already have a supplier whose "Item" field matches that ingredient's name exactly. No matching supplier means no auto-order, full stop; it'll still show up as a suggestion for you to handle by hand instead.</div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:13.5px;">
+              <input type="checkbox" id="setAutoReorder"> Automatically place orders for low-stock items with a matched supplier
+            </label>
+            <button class="btn btn-outline" style="margin-top:10px;" id="saveAutoReorderBtn">Save</button>
+          </div>
+        </div>
+
+        <div class="settings-panel" data-settings-panel="security" style="display:none;">
+          <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">Add a teammate login</div>
+            <div class="section-sub" id="inviteSectionSub">They'll get an email with a link to set their own password. A Manager gets full access by default; for Staff, pick exactly which modules they can use.</div>
+            <div class="form-row">
+              <div><label class="small">Name</label><input id="inviteName"></div>
+              <div><label class="small">Email</label><input id="inviteEmail" type="email"></div>
+              <div id="invitePasswordField" style="display:none;"><label class="small">Temporary password</label><input id="invitePassword" type="password"></div>
+              <div><label class="small">Role</label><select id="inviteRole"><option value="manager">Manager (full access)</option><option value="staff">Staff (choose modules)</option></select></div>
+            </div>
+            <div id="invitePermissions" style="margin:10px 0;">
+              <label class="small">Modules this staff login can access</label>
+              <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:13px;">
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="inventory"> Inventory</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="menu"> Menu &amp; Dish Costs</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="customers"> Customers</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="invoices"> Invoices</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="reports"> Reports</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-module" value="settings"> Settings</label>
+              </div>
+            </div>
+            <div id="inviteDeletePermissions" style="margin:10px 0;">
+              <label class="small">Also allow deleting from</label>
+              <div class="section-sub" style="margin-top:0;margin-bottom:6px;">Optional and separate from the access above — viewing/adding is different from being trusted to remove things.</div>
+              <div style="display:flex; flex-wrap:wrap; gap:14px; font-size:13px;">
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-delete-module" value="inventory"> Inventory</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-delete-module" value="menu"> Menu &amp; Dish Costs</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-delete-module" value="customers"> Customers</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-delete-module" value="reports"> Reports</label>
+                <label style="display:flex;align-items:center;gap:6px;"><input type="checkbox" class="invite-delete-module" value="settings"> Settings</label>
+              </div>
+            </div>
+            <button class="btn btn-primary" id="inviteBtn">Send invite</button>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">Team</div>
+            <table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Modules</th><th>Can delete from</th><th></th></tr></thead><tbody id="teamBody"></tbody></table>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">Two-factor authentication</div>
+            <div class="section-sub">Optional, per person. Recommended for owner/admin logins; entirely your call for staff accounts.</div>
+            <div id="twofaOff">
+              <p style="font-size:13px; color:var(--ink-soft);">Not enabled on this login yet.</p>
+              <button class="btn btn-primary" id="start2faBtn">Enable 2FA</button>
+            </div>
+            <div id="twofaSetup" style="display:none;">
+              <p style="font-size:13px;">Scan this with Google Authenticator, Authy, or similar, then enter the 6-digit code it shows.</p>
+              <img id="twofaQr" style="width:180px;height:180px;border:1px solid var(--border);border-radius:8px;">
+              <div style="font-size:11px;color:var(--ink-soft);margin:8px 0;">Can't scan? Enter this key manually: <span class="mono" id="twofaSecretText"></span></div>
+              <div class="form-row">
+                <div><label class="small">6-digit code</label><input id="twofaConfirmCode" maxlength="6"></div>
+                <div style="align-self:flex-end;"><button class="btn btn-primary" id="confirm2faBtn">Confirm &amp; enable</button></div>
+              </div>
+            </div>
+            <div id="twofaOn" style="display:none;">
+              <p style="font-size:13px; color:var(--ok);">✓ 2FA is enabled on this login.</p>
+              <div class="form-row">
+                <div><label class="small">Confirm password to disable</label><input id="disable2faPassword" type="password"></div>
+                <div style="align-self:flex-end;"><button class="btn btn-outline" id="disable2faBtn">Disable 2FA</button></div>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">Where you're logged in</div>
+            <div class="section-sub">Every device with an active session on your own login. If you don't recognize one, log it out — that stops it immediately, even without changing your password.</div>
+            <table><thead><tr><th>Device</th><th>IP address</th><th>Last active</th><th></th></tr></thead><tbody id="sessionsBody"></tbody></table>
+          </div>
+          <div class="card" style="margin-bottom:20px;">
+            <div class="section-title">Automatic sign-out</div>
+            <div class="section-sub">How long a login stays valid before needing to sign in again. Applies to new logins going forward.</div>
+            <div class="form-row">
+              <div><label class="small">Days before a session expires</label><input id="setSessionDays" type="number" min="1" max="90" style="width:120px;"></div>
+              <div style="align-self:flex-end;"><button class="btn btn-outline" id="saveSessionDaysBtn">Save</button></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="section-title">Recent account activity</div>
+            <div class="section-sub">Logins, failed attempts, and settings changes — check here if something looks off.</div>
+            <table><thead><tr><th>When</th><th>Event</th><th>User</th><th>Detail</th><th>IP</th></tr></thead><tbody id="activityBody"></tbody></table>
+            <div id="activityEmpty" class="empty-state" style="display:none;"><div class="big">🕘</div>No activity recorded yet.</div>
+          </div>
+        </div>
+
+        <div class="settings-panel" data-settings-panel="billing" style="display:none;">
+          <div class="card">
+            <div class="section-title">Billing</div>
+            <div class="section-sub" id="billingStatus">Checking subscription status…</div>
+            <div class="form-row" style="align-items:flex-end;">
+              <div><label class="small">Amount to pay (GH₵)</label><input id="payAmount" type="number" value="100"></div>
+              <div><button class="btn btn-primary" id="payNowBtn">Pay via MoMo / Card</button></div>
+            </div>
+            <div style="font-size:11px;color:var(--ink-soft);margin-top:6px;">Opens Paystack's secure checkout — card and MoMo details go directly to Paystack, never through this app or its database.</div>
+          </div>
+        </div>
+
+        <div class="settings-panel" data-settings-panel="branches" style="display:none;">
+          <div class="card">
+            <div class="section-title">Branches</div>
+            <div class="section-sub">Add a branch for each location if you're running more than one — inventory, dishes, staff and invoices can each be tagged to a branch, and reports roll up across all of them.</div>
+            <div class="form-row">
+              <div><label class="small">Branch name</label><input id="branchName" placeholder="e.g. Airport Branch"></div>
+              <div><label class="small">Address</label><input id="branchAddress" placeholder="e.g. Accra"></div>
+              <div style="align-self:flex-end;"><button class="btn btn-primary" id="addBranchBtn">Add branch</button></div>
+            </div>
+            <table><thead><tr><th>Branch</th><th>Address</th><th></th></tr></thead><tbody id="branchBody"></tbody></table>
+          </div>
+        </div>
+
+        <div class="settings-panel" data-settings-panel="appearance" style="display:none;">
+          <div class="card">
+            <div class="section-title">Display &amp; accessibility</div>
+            <div class="section-sub">Saved to your login, not this device — follows you anywhere you sign in.</div>
+            <div class="form-row">
+              <div>
+                <label class="small">Theme</label>
+                <select id="themeSelect"><option value="light">Light</option><option value="dark">Dark</option></select>
+              </div>
+              <div>
+                <label class="small">Text size</label>
+                <select id="fontSizeSelect"><option value="normal">Normal</option><option value="large">Large</option><option value="xlarge">Extra large</option></select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div id="modalOverlay" style="display:none; position:fixed; inset:0; background:rgba(43,33,24,0.4); z-index:100; align-items:center; justify-content:center;" onclick="if(event.target===this) closeModal();">
+  <div style="background:var(--surface); border-radius:14px; padding:24px; max-width:480px; width:90%; max-height:80vh; overflow-y:auto; box-shadow:var(--shadow);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <div class="section-title" id="modalTitle" style="margin-bottom:0;"></div>
+      <span style="cursor:pointer; font-size:18px; color:var(--ink-soft);" onclick="closeModal()">✕</span>
+    </div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {}); // silent fail is fine — app still works without it
+  });
+}
+</script>
+<script>
+// ============================================================
+// API base — same origin when served by the Express server.
+// If you host the frontend separately, change this to your
+// backend's URL, e.g. 'https://roms-api.onrender.com', and make
+// sure ALLOWED_ORIGIN on the server matches where this file is hosted.
+//
+// Auth is an httpOnly cookie set by the server on login/register —
+// this page never stores or handles the session token directly,
+// which is what keeps it safe from theft via any injected script.
+// ============================================================
+const API = '';
+let ME = null;
+let inventoryCache = [];
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display='block';
+  setTimeout(()=>t.style.display='none', 2200);
+}
+
+// Every piece of text that came from a database row (a dish name, a customer
+// name, a waste reason, anything someone typed into a form) MUST go through
+// this before being inserted as HTML. Without it, someone could name a
+// "customer" something like a script tag and have it execute in every session
+// that views the Customers tab — a classic stored XSS attack. Values that are
+// definitely our own numbers (totals, counts, percentages) don't need this.
+function esc(str){
+  if(str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function api(path, opts={}){
+  const res = await fetch(API + path, {
+    ...opts,
+    credentials: 'include', // sends the httpOnly session cookie automatically
+    headers: { 'Content-Type':'application/json', ...(opts.headers||{}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = res.status === 204 ? null : await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((data && data.error) || 'Something went wrong.');
+  return data;
+}
+
+// Auto-login: if a valid session cookie already exists (page refresh, new tab),
+// skip the login screen entirely instead of forcing a re-login every time.
+(async function tryAutoLogin(){
+  try{
+    const data = await api('/api/auth/me');
+    ME = data;
+    enterApp();
+  } catch(e){
+    // No valid session — show the login/register screen as normal.
+  }
+})();
+
+// ---------- AUTH ----------
+let authMode = 'login';
+
+// ---------- FORGOT / RESET PASSWORD ----------
+window.showForgotPassword = ()=>{
+  document.querySelectorAll('#registerFields, #credentialsFields, .auth-tabs, #forgotPasswordLink, #authSubmit').forEach(el=>el.style.display='none');
+  document.getElementById('forgotPasswordForm').style.display = 'block';
+};
+window.hideForgotPassword = ()=>{
+  document.getElementById('forgotPasswordForm').style.display = 'none';
+  document.querySelector('.auth-tabs').style.display = '';
+  document.getElementById('forgotPasswordLink').style.display = '';
+  document.getElementById('registerFields').style.display = authMode==='register' ? 'block' : 'none';
+  document.getElementById('credentialsFields').style.display = 'block';
+  document.getElementById('authSubmit').style.display = 'block';
+  if(authMode === 'register') resetRegWizard();
+};
+document.getElementById('forgotSubmitBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('forgotEmail').value.trim();
+  if(!email) return;
+  const btn = document.getElementById('forgotSubmitBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try{
+    const data = await api('/api/auth/forgot-password', {method:'POST', body:{email}});
+    document.getElementById('forgotPasswordForm').innerHTML = `<p style="font-size:13px; text-align:center;">${data.message}</p>`;
+  } catch(e){ showToast(e.message); btn.disabled=false; btn.textContent='Send reset link'; }
+});
+
+// If the page loaded with ?reset=TOKEN in the URL, show the "set new password"
+// form immediately instead of the normal login screen.
+(function checkResetLink(){
+  const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get('reset');
+  if(!resetToken) return;
+  document.querySelectorAll('#registerFields, #credentialsFields, .auth-tabs, #forgotPasswordLink, #authSubmit').forEach(el=>el.style.display='none');
+  document.getElementById('resetPasswordForm').style.display = 'block';
+  document.getElementById('resetSubmitBtn').addEventListener('click', async ()=>{
+    const newPassword = document.getElementById('resetNewPassword').value;
+    if(!newPassword) return;
+    try{
+      await api('/api/auth/reset-password', {method:'POST', body:{token: resetToken, newPassword}});
+      window.history.replaceState({}, '', window.location.pathname);
+      document.getElementById('resetPasswordForm').innerHTML = '<p style="font-size:13px; text-align:center;">Password updated — you can log in now.</p>';
+      setTimeout(()=>window.location.reload(), 1800);
+    } catch(e){ showToast(e.message); }
+  });
+})();
+let pendingChallenge = null;
+function resetRegWizard(){
+  document.getElementById('regStep1').style.display = 'block';
+  document.getElementById('regStep2').style.display = 'none';
+  document.getElementById('regStepIndicator').textContent = 'STEP 1 OF 2 — ABOUT YOUR BUSINESS';
+  document.getElementById('credentialsFields').style.display = 'none';
+  document.getElementById('authSubmit').style.display = 'none';
+}
+document.querySelectorAll('.auth-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    authMode = tab.dataset.mode;
+    document.getElementById('registerFields').style.display = authMode==='register' ? 'block' : 'none';
+    document.getElementById('authSubmit').textContent = authMode==='register' ? 'Create business account' : 'Log in';
+    if(authMode === 'register'){
+      resetRegWizard();
+    } else {
+      document.getElementById('credentialsFields').style.display = 'block';
+      document.getElementById('authSubmit').style.display = 'block';
+    }
+  });
+});
+document.getElementById('regNextBtn').addEventListener('click', ()=>{
+  if(!document.getElementById('regBusiness').value.trim()) return showToast('Business name is required.');
+  if(!document.getElementById('regName').value.trim()) return showToast('Your name is required.');
+  document.getElementById('regStep1').style.display = 'none';
+  document.getElementById('regStep2').style.display = 'block';
+  document.getElementById('regStepIndicator').textContent = 'STEP 2 OF 2 — YOUR LOGIN';
+  document.getElementById('credentialsFields').style.display = 'block';
+  document.getElementById('authSubmit').style.display = 'block';
+  document.getElementById('authEmail').focus();
+});
+
+document.getElementById('authSubmit').addEventListener('click', async ()=>{
+  const errEl = document.getElementById('authError');
+  errEl.style.display='none';
+  const email = document.getElementById('authEmail').value.trim();
+  const password = document.getElementById('authPassword').value;
+  const btn = document.getElementById('authSubmit');
+  btn.disabled = true;
+  try{
+    let data;
+    if(authMode === 'register'){
+      const businessName = document.getElementById('regBusiness').value.trim();
+      const ownerName = document.getElementById('regName').value.trim();
+      const inviteCode = document.getElementById('regInviteCode').value.trim();
+      const businessType = document.getElementById('regBusinessType').value;
+      const branchCount = parseInt(document.getElementById('regBranchCount').value)||1;
+      const phoneNumber = document.getElementById('regPhone').value.trim();
+      data = await api('/api/auth/register', {method:'POST', body:{businessName, ownerName, email, password, inviteCode, businessType, branchCount, phoneNumber}});
+    } else {
+      data = await api('/api/auth/login', {method:'POST', body:{email, password}});
+      if(data.requires2FA){
+        pendingChallenge = data.challenge;
+        document.getElementById('twofaPrompt').style.display = 'block';
+        document.getElementById('authSubmit').style.display = 'none';
+        document.querySelectorAll('#registerFields, #credentialsFields, .auth-tabs').forEach(el=>el.style.display='none');
+        btn.disabled = false;
+        return;
+      }
+    }
+    // The server already set the httpOnly session cookie in this response —
+    // nothing to store here except the profile info for display.
+    ME = data;
+    enterApp();
+  } catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+document.getElementById('twofaSubmit').addEventListener('click', async ()=>{
+  const errEl = document.getElementById('authError');
+  errEl.style.display = 'none';
+  const code = document.getElementById('twofaCode').value.trim();
+  if(!code) return;
+  try{
+    const data = await api('/api/auth/login/2fa', {method:'POST', body:{challenge: pendingChallenge, code}});
+    ME = data;
+    enterApp();
+  } catch(e){
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  await doLogout();
+});
+document.getElementById('pendingLogoutBtn').addEventListener('click', async ()=>{
+  await api('/api/auth/logout', {method:'POST'}).catch(()=>{});
+  ME = null;
+  document.getElementById('pendingApprovalScreen').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+});
+async function doLogout(reason){
+  await api('/api/auth/logout', {method:'POST'}).catch(()=>{});
+  ME = null;
+  document.getElementById('app').classList.remove('active');
+  document.getElementById('authScreen').style.display = 'flex';
+  if(reason){
+    const errEl = document.getElementById('authError');
+    errEl.textContent = reason;
+    errEl.style.display = 'block';
+  }
+}
+
+// ---------- INACTIVITY AUTO-LOGOUT ----------
+// Logs out automatically after a stretch of no real activity — mouse, keys,
+// clicks, or scrolling — so a device left unlocked doesn't stay signed in
+// indefinitely. A short visible warning fires first, since silently logging
+// someone out mid-task is its own kind of bad experience.
+const INACTIVITY_LIMIT_MS = 20 * 60 * 1000;   // 20 minutes of no activity
+const INACTIVITY_WARNING_MS = 60 * 1000;       // warn 60 seconds before it happens
+let inactivityTimer = null, inactivityWarningTimer = null;
+function resetInactivityTimer(){
+  if(!ME) return; // nothing to protect if not logged in
+  clearTimeout(inactivityTimer);
+  clearTimeout(inactivityWarningTimer);
+  document.getElementById('inactivityWarning')?.remove();
+  inactivityWarningTimer = setTimeout(showInactivityWarning, INACTIVITY_LIMIT_MS - INACTIVITY_WARNING_MS);
+  inactivityTimer = setTimeout(()=>doLogout('You were logged out after 20 minutes of inactivity.'), INACTIVITY_LIMIT_MS);
+}
+function showInactivityWarning(){
+  const el = document.createElement('div');
+  el.id = 'inactivityWarning';
+  el.style.cssText = 'position:fixed; bottom:20px; right:20px; background:var(--cocoa-deep); color:#fff; padding:14px 18px; border-radius:10px; font-size:13px; z-index:200; box-shadow:0 8px 24px rgba(0,0,0,0.2);';
+  el.textContent = "You'll be logged out in 60 seconds due to inactivity — move your mouse to stay logged in.";
+  document.body.appendChild(el);
+}
+['mousemove','keydown','click','scroll','touchstart'].forEach(evt=>{
+  document.addEventListener(evt, ()=>{ if(ME) resetInactivityTimer(); }, {passive:true});
+});
+
+function enterApp(){
+  document.getElementById('authScreen').style.display = 'none';
+
+  if(ME.business.approval_status === 'pending' || ME.business.approval_status === 'rejected'){
+    document.getElementById('pendingApprovalScreen').style.display = 'flex';
+    document.getElementById('rejectedNotice').style.display = ME.business.approval_status === 'rejected' ? 'block' : 'none';
+    return; // don't load the dashboard — the backend blocks it anyway, this just avoids a flash of failed requests
+  }
+
+  document.getElementById('app').classList.add('active');
+  document.getElementById('sidebarBrand').textContent = ME.business.name;
+  document.getElementById('profileName').textContent = ME.user.name;
+  document.getElementById('setBizName').value = ME.business.name;
+  document.getElementById('setCurrency').value = ME.business.currency || 'GHS';
+  document.getElementById('setMomo').value = ME.business.momo_number || '';
+  document.getElementById('setVatRate').value = ME.business.vat_rate ?? 15;
+  document.getElementById('setVatEnabled').value = ME.business.vat_enabled ? '1' : '0';
+  document.getElementById('setNhilRate').value = ME.business.nhil_rate ?? 2.5;
+  document.getElementById('setNhilEnabled').value = ME.business.nhil_enabled ? '1' : '0';
+  document.getElementById('setTourismRate').value = ME.business.tourism_levy_rate ?? 1;
+  document.getElementById('setTourismEnabled').value = ME.business.tourism_levy_enabled ? '1' : '0';
+  applyDisplayPrefs();
+  loadEverything();
+  renderBillingStatus();
+  checkPaymentReturn();
+  document.getElementById('emailVerifyBanner').style.display =
+    (ME.emailVerificationEnabled && !ME.user.email_verified) ? 'flex' : 'none';
+  maybeShowSinceLastLogin();
+  resetInactivityTimer();
+}
+async function maybeShowSinceLastLogin(){
+  // Only fires on a genuine fresh login (previous_login_at only comes back
+  // from /login, not from the silent auto-login /me check on page refresh)
+  // and only once there's been a real gap — nobody needs this after
+  // stepping away for twenty minutes.
+  if(!ME.user.previous_login_at) return;
+  const gapMs = Date.now() - new Date(ME.user.previous_login_at.replace(' ', 'T') + 'Z').getTime();
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+  if(gapMs < ONE_DAY) return;
+
+  try{
+    const s = await api('/api/analytics/since?since=' + encodeURIComponent(ME.user.previous_login_at));
+    const days = Math.round(gapMs / ONE_DAY);
+    const lines = [];
+    lines.push(`<p><b>${s.invoiceCount}</b> invoice${s.invoiceCount===1?'':'s'} came in, totaling <b>GH₵ ${s.revenue.toFixed(2)}</b>.</p>`);
+    if(s.waste > 0) lines.push(`<p><b>GH₵ ${s.waste.toFixed(2)}</b> went to waste${s.topWasteIngredient ? ', mostly '+esc(s.topWasteIngredient) : ''}.</p>`);
+    if(s.lowStockCount > 0) lines.push(`<p><b>${s.lowStockCount}</b> item${s.lowStockCount===1?' is':'s are'} at or below reorder level right now.</p>`);
+    if(s.unpaidInvoiceCount > 0) lines.push(`<p><b>${s.unpaidInvoiceCount}</b> unpaid invoice${s.unpaidInvoiceCount===1?'':'s'} from this stretch, worth GH₵ ${s.unpaidInvoiceTotal.toFixed(2)}.</p>`);
+    if(lines.length === 1) lines.push(`<p style="color:var(--ink-soft);">Otherwise quiet — nothing else needs attention.</p>`);
+    showModal(`Since you last checked in (${days} day${days===1?'':'s'} ago)`, lines.join(''));
+  } catch(e){ /* not worth interrupting login over a summary that failed to load */ }
+}
+document.getElementById('emailVerifySubmit').addEventListener('click', async ()=>{
+  const code = document.getElementById('emailVerifyCode').value.trim();
+  if(!code) return showToast('Enter the code from your email.');
+  try{
+    await api('/api/auth/verify-email', {method:'POST', body:{code}});
+    document.getElementById('emailVerifyBanner').style.display = 'none';
+    ME.user.email_verified = true;
+    showToast('Email verified!');
+  } catch(e){ showToast(e.message); }
+});
+document.getElementById('emailVerifyResend').addEventListener('click', async ()=>{
+  try{
+    await api('/api/auth/resend-verification', {method:'POST'});
+    showToast('New code sent — check your inbox.');
+  } catch(e){ showToast(e.message); }
+});
+function applyDisplayPrefs(){
+  const theme = ME.user.theme || 'light';
+  const fontSize = ME.user.font_size || 'normal';
+  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.setAttribute('data-fontsize', fontSize);
+  document.getElementById('themeSelect').value = theme;
+  document.getElementById('fontSizeSelect').value = fontSize;
+}
+document.getElementById('themeSelect').addEventListener('change', async (e)=>{
+  document.documentElement.setAttribute('data-theme', e.target.value);
+  await api('/api/auth/preferences', {method:'PUT', body:{theme: e.target.value}});
+  ME.user.theme = e.target.value;
+});
+document.getElementById('fontSizeSelect').addEventListener('change', async (e)=>{
+  document.documentElement.setAttribute('data-fontsize', e.target.value);
+  await api('/api/auth/preferences', {method:'PUT', body:{font_size: e.target.value}});
+  ME.user.font_size = e.target.value;
+});
+
+// ---------- PAYMENTS (Paystack) ----------
+// If we've just been redirected back from Paystack's checkout page, verify
+// the payment server-side before trusting it — the URL alone proves nothing,
+// only Paystack's own records (via /verify) confirm money actually moved.
+async function checkPaymentReturn(){
+  const params = new URLSearchParams(window.location.search);
+  const reference = params.get('reference') || params.get('trxref');
+  if(!reference) return;
+  try{
+    const result = await api('/api/payments/verify/'+encodeURIComponent(reference));
+    if(result.status === 'success'){
+      showToast(`Payment confirmed — GH₵ ${result.amount.toFixed(2)}. Thank you!`);
+    } else {
+      showToast('Payment was not completed.');
+    }
+  } catch(e){ /* silently ignore — not every page load has a real payment to verify */ }
+  window.history.replaceState({}, '', window.location.pathname); // clean the URL
+  renderBillingStatus();
+}
+function renderBillingStatus(){
+  const b = ME.business;
+  const el = document.getElementById('billingStatus');
+  if(el){
+    if(b.subscription_status === 'active' && b.paid_through){
+      el.innerHTML = `<span class="tag tag-ok">Active</span> Paid through ${b.paid_through}`;
+    } else if(b.subscription_status === 'overdue'){
+      el.innerHTML = `<span class="tag tag-critical">Overdue</span> Your last payment has expired.`;
+    } else {
+      el.innerHTML = `<span class="tag tag-gold">Trial</span> No payment on file yet.`;
+    }
+  }
+  document.getElementById('paymentBanner').style.display = b.payment_blocked ? 'flex' : 'none';
+
+  const warnEl = document.getElementById('renewalWarningBanner');
+  const WARNING_DAYS = 5;
+  if(!b.payment_blocked && b.days_until_blocked !== null && b.days_until_blocked <= WARNING_DAYS){
+    const label = b.subscription_status === 'trial' ? 'trial' : 'payment';
+    document.getElementById('renewalWarningText').textContent =
+      `⏳ Your ${label} ends in ${b.days_until_blocked} day${b.days_until_blocked===1?'':'s'} — renew before then to avoid a pause.`;
+    warnEl.style.display = 'flex';
+  } else {
+    warnEl.style.display = 'none';
+  }
+}
+document.getElementById('payNowBtn').addEventListener('click', async ()=>{
+  const amount_ghs = parseFloat(document.getElementById('payAmount').value);
+  if(!amount_ghs || amount_ghs <= 0) return showToast('Enter a valid amount.');
+  const btn = document.getElementById('payNowBtn');
+  btn.disabled = true; btn.textContent = 'Opening checkout...';
+  try{
+    const data = await api('/api/payments/initialize', {method:'POST', body:{amount_ghs}});
+    window.location.href = data.authorization_url; // hands off to Paystack's own secure checkout page
+  } catch(e){
+    showToast(e.message);
+    btn.disabled = false; btn.textContent = 'Pay via MoMo / Card';
+  }
+});
+
+// ---------- NAV ----------
+const titles = {
+  dashboard:['Dashboard',"Live numbers from your own data."],
+  foh:['Tables & Waitlist','Floor status and who is waiting for a table.'],
+  menu:['Menu & Dish Costs','Add ingredients, watch margin recalculate.'],
+  inventory:['Inventory','Every ingredient and its cost, feeding your dish math.'],
+  foodsafety:['Food Safety','Temperature checks and food safety compliance.'],
+  waste:['Waste Tracker','What got thrown away, and why.'],
+  suppliers:['Suppliers','Compare price against reliability.'],
+  invoices:['Invoices','Bill customers and standing accounts.'],
+  cashpo:['Cash & Purchasing','Reconcile the till and reorder what\'s running low.'],
+  customers:['Customers','Repeat customers and loyalty.'],
+  staff:['Staff','Your team, in one place.'],
+  reports:['Reports','What this month actually looked like.'],
+  settings:['Settings','Business details and teammate logins.'],
+};
+// Every old top-level page still exists exactly as before — this just groups
+// them under fewer sidebar entries with a sub-tab row, instead of rewriting
+// any of the actual feature content. Kitchen/floor things live under
+// Operations, money things under Sales, matching how an owner actually
+// thinks about their day rather than how the features happen to be built.
+const VIEW_GROUPS = {
+  dashboard:  { label:'Dashboard',  views:['dashboard'] },
+  operations: { label:'Operations', views:['inventory','menu','waste','foodsafety','suppliers','foh'] },
+  sales:      { label:'Sales',      views:['invoices','cashpo','customers'] },
+  team:       { label:'Team',       views:['staff'] },
+  insights:   { label:'Insights',   views:['reports'] },
+  settings:   { label:'Settings',   views:['settings'] },
+};
+function groupForView(viewKey){
+  for(const [groupKey, group] of Object.entries(VIEW_GROUPS)){
+    if(group.views.includes(viewKey)) return groupKey;
+  }
+  return null;
+}
+// Some views need to run setup code the first time they're actually shown
+// (loading fresh data, drawing charts) rather than on initial page load —
+// this replaces the old per-nav-item click listeners with the same lazy
+// behavior, keyed by view instead of by nav item.
+const onViewActivated = {};
+window.switchToView = function(viewKey){
+  const groupKey = groupForView(viewKey);
+  if(!groupKey) return;
+  const group = VIEW_GROUPS[groupKey];
+
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  const navEl = document.querySelector(`.nav-item[data-group="${groupKey}"]`);
+  if(navEl) navEl.classList.add('active');
+
+  const subTabBar = document.getElementById('subTabBar');
+  if(group.views.length > 1){
+    subTabBar.style.display = 'flex';
+    subTabBar.innerHTML = group.views.map(v=>`<div class="sub-tab ${v===viewKey?'active':''}" data-view="${v}">${titles[v][0]}</div>`).join('');
+    subTabBar.querySelectorAll('.sub-tab').forEach(tab=>{
+      tab.addEventListener('click', ()=>switchToView(tab.dataset.view));
+    });
+  } else {
+    subTabBar.style.display = 'none';
+    subTabBar.innerHTML = '';
+  }
+
+  document.querySelectorAll('.view').forEach(vw=>vw.classList.remove('active'));
+  document.getElementById('view-'+viewKey).classList.add('active');
+  document.getElementById('viewTitle').textContent = titles[viewKey][0];
+  document.getElementById('viewSub').textContent = titles[viewKey][1];
+
+  if(onViewActivated[viewKey]) onViewActivated[viewKey]();
+};
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click', ()=>{
+    const groupKey = item.dataset.group;
+    switchToView(VIEW_GROUPS[groupKey].views[0]);
+  });
+});
+
+// ---------- LOAD EVERYTHING ----------
+async function loadEverything(){
+  await loadBranches(); // must finish first — inventory/customers/dishes rows look up branch names from this cache
+  await Promise.all([loadDashboard(), loadInventory(), loadDishes(), loadWaste(), loadSuppliers(), loadInvoices(), loadCustomers(), loadStaff(), loadTables(), loadWaitlist(), loadTempChecks(), loadReconciliations(), loadPurchaseOrders()]);
+}
+
+// ---------- TABLES & WAITLIST (Front of House) ----------
+const TABLE_STATUS_CYCLE = ['available', 'occupied', 'reserved', 'cleaning'];
+const TABLE_STATUS_COLOR = { available:'var(--ok-bg)', occupied:'var(--critical-bg)', reserved:'#FBF0DC', cleaning:'#F1E7D8' };
+let tableCache = [];
+async function loadTables(){
+  const rows = await api('/api/tables');
+  tableCache = rows;
+  document.getElementById('tablesEmpty').style.display = rows.length ? 'none':'block';
+  document.getElementById('tablesGrid').innerHTML = rows.map(t=>`
+    <div style="position:relative; padding:14px 18px; border-radius:10px; border:1px solid var(--border); background:${TABLE_STATUS_COLOR[t.status]||'#fff'}; min-width:100px; text-align:center;">
+      <span onclick="event.stopPropagation(); editTable(${t.id})" title="Edit" style="position:absolute; top:4px; left:6px; cursor:pointer; font-size:11px; color:var(--ink-soft);">✎</span>
+      <span onclick="event.stopPropagation(); deleteTable(${t.id})" title="Delete" style="position:absolute; top:4px; right:6px; cursor:pointer; font-size:11px; color:var(--ink-soft);">✕</span>
+      <div onclick="cycleTable(${t.id}, '${t.status}')" style="cursor:pointer;">
+        <div style="font-weight:700;">${esc(t.name)}</div>
+        <div style="font-size:11px;color:var(--ink-soft);">${t.seats} seats</div>
+        <div style="font-size:11px;text-transform:capitalize;margin-top:4px;">${t.status}</div>
+        <div style="font-size:9px;color:var(--ink-soft);margin-top:2px;">tap to cycle status</div>
+      </div>
+    </div>`).join('');
+}
+document.getElementById('addTableBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('tableName').value.trim();
+  if(!name) return showToast('Table name is required.');
+  await api('/api/tables', {method:'POST', body:{name, seats: parseInt(document.getElementById('tableSeats').value)||2, status:'available'}});
+  document.getElementById('tableName').value='';
+  loadTables();
+});
+window.cycleTable = async (id, currentStatus)=>{
+  const next = TABLE_STATUS_CYCLE[(TABLE_STATUS_CYCLE.indexOf(currentStatus)+1) % TABLE_STATUS_CYCLE.length];
+  await api('/api/tables/'+id, {method:'PUT', body:{status: next}});
+  loadTables();
+};
+window.deleteTable = async (id)=>{ await api('/api/tables/'+id, {method:'DELETE'}); loadTables(); };
+window.editTable = (id)=>{
+  const t = tableCache.find(x=>x.id===id);
+  if(!t) return;
+  showModal('Edit table', `
+    <label class="small">Table name</label><input id="modalTableName" value="${esc(t.name)}" style="width:100%; margin-bottom:10px;">
+    <label class="small">Seats</label><input id="modalTableSeats" type="number" value="${t.seats}" style="width:100%; margin-bottom:14px;">
+    <button class="btn btn-primary" onclick="saveTableEdit(${id})">Save</button>
+  `);
+};
+window.saveTableEdit = async (id)=>{
+  const name = document.getElementById('modalTableName').value.trim();
+  const seats = parseInt(document.getElementById('modalTableSeats').value)||2;
+  if(!name) return showToast('Table name is required.');
+  await api('/api/tables/'+id, {method:'PUT', body:{name, seats}});
+  closeModal();
+  loadTables();
+};
+
+let waitlistCache = [];
+async function loadWaitlist(){
+  const rows = await api('/api/waitlist');
+  waitlistCache = rows;
+  const waiting = rows.filter(w=>w.status==='waiting');
+  document.getElementById('waitEmpty').style.display = waiting.length ? 'none':'block';
+  document.getElementById('waitBody').innerHTML = waiting.map(w=>`
+    <tr><td>${esc(w.name)}</td><td class="num">${w.party_size}</td><td>${w.quoted_wait_minutes ? w.quoted_wait_minutes+' min' : '—'}</td>
+    <td><span class="tag tag-gold">Waiting</span></td>
+    <td style="white-space:nowrap;">
+      <button class="pill-btn" onclick="markSeated(${w.id})">Seated</button>
+      <button class="pill-btn" onclick="markLeft(${w.id})">Left</button>
+      <span style="cursor:pointer;margin:0 8px;" title="Edit" onclick="editWait(${w.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteWait(${w.id})">✕</span>
+    </td></tr>`).join('');
+}
+let editingWaitId = null;
+document.getElementById('addWaitBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addWaitBtn');
+  if(btn.disabled) return;
+  const name = document.getElementById('waitName').value.trim();
+  if(!name) return showToast('Name is required.');
+  btn.disabled = true;
+  try{
+    const body = {
+      name, party_size: parseInt(document.getElementById('waitParty').value)||1,
+      phone: document.getElementById('waitPhone').value, quoted_wait_minutes: parseInt(document.getElementById('waitMins').value)||null,
+      status:'waiting'
+    };
+    if(editingWaitId){
+      await api('/api/waitlist/'+editingWaitId, {method:'PUT', body});
+      showToast('Updated.');
+      editingWaitId = null;
+      btn.textContent = 'Add to waitlist';
+    } else {
+      await api('/api/waitlist', {method:'POST', body});
+    }
+    ['waitName','waitPhone','waitMins'].forEach(id=>document.getElementById(id).value='');
+    loadWaitlist();
+  } finally { btn.disabled = false; }
+});
+window.editWait = (id)=>{
+  const w = waitlistCache.find(x=>x.id===id);
+  if(!w) return;
+  editingWaitId = id;
+  document.getElementById('waitName').value = w.name;
+  document.getElementById('waitParty').value = w.party_size;
+  document.getElementById('waitPhone').value = w.phone || '';
+  document.getElementById('waitMins').value = w.quoted_wait_minutes || '';
+  document.getElementById('addWaitBtn').textContent = 'Save changes';
+};
+window.markSeated = async (id)=>{ await api('/api/waitlist/'+id, {method:'PUT', body:{status:'seated'}}); loadWaitlist(); };
+window.markLeft = async (id)=>{ await api('/api/waitlist/'+id, {method:'PUT', body:{status:'left'}}); loadWaitlist(); };
+window.deleteWait = async (id)=>{ await api('/api/waitlist/'+id, {method:'DELETE'}); loadWaitlist(); };
+
+// ---------- FOOD SAFETY (temperature checks) ----------
+let tempCache = [];
+async function loadTempChecks(){
+  tempCache = await api('/api/temperature-checks');
+  document.getElementById('tempEmpty').style.display = tempCache.length ? 'none':'block';
+  document.getElementById('tempBody').innerHTML = tempCache.map(t=>`
+    <tr><td>${esc(t.location)}</td><td class="num">${t.temperature_c ?? ''}</td>
+    <td>${t.pass ? '<span class="tag tag-ok">Pass</span>' : '<span class="tag tag-critical">Flagged</span>'}</td>
+    <td>${esc(t.checked_by)||''}</td><td>${esc(t.notes)||''}</td><td>${(t.created_at||'').slice(0,16)}</td>
+    <td style="white-space:nowrap;">
+      <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editTemp(${t.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteTemp(${t.id})">✕</span>
+    </td></tr>`).join('');
+}
+let editingTempId = null;
+// Suggests pass/fail automatically from common food-safety thresholds, based
+// on what the location sounds like — the person can still override it, this
+// is a smart default, not a hard rule, since exact standards vary.
+function autoSuggestTempPass(){
+  const location = document.getElementById('tempLocation').value.toLowerCase();
+  const temp = parseFloat(document.getElementById('tempValue').value);
+  const hint = document.getElementById('tempAutoHint');
+  if(isNaN(temp) || !location){ hint.textContent = ''; return; }
+
+  let safe = null, rule = '';
+  if(location.includes('freezer')){ safe = temp <= -15; rule = 'freezers should read -15°C or colder'; }
+  else if(location.includes('fridge') || location.includes('cold') || location.includes('chiller')){ safe = temp <= 5; rule = 'fridges should read 5°C or colder'; }
+  else if(location.includes('hot') || location.includes('grill') || location.includes('hold')){ safe = temp >= 60; rule = 'hot-hold should read 60°C or hotter'; }
+
+  if(safe === null){ hint.textContent = ''; return; }
+  document.getElementById('tempPass').value = safe ? '1' : '0';
+  hint.textContent = safe ? `✓ Within range (${rule}).` : `⚠ Auto-flagged — ${rule}. Confirm or change above.`;
+  hint.style.color = safe ? 'var(--ok)' : 'var(--critical)';
+}
+document.getElementById('tempLocation').addEventListener('input', autoSuggestTempPass);
+document.getElementById('tempValue').addEventListener('input', autoSuggestTempPass);
+
+document.getElementById('addTempBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addTempBtn');
+  if(btn.disabled) return;
+  const location = document.getElementById('tempLocation').value.trim();
+  if(!location) return showToast('Location is required.');
+  btn.disabled = true;
+  try{
+    const body = {
+      location, temperature_c: parseFloat(document.getElementById('tempValue').value)||null,
+      pass: parseInt(document.getElementById('tempPass').value),
+      checked_by: document.getElementById('tempBy').value, notes: document.getElementById('tempNotes').value
+    };
+    if(editingTempId){
+      await api('/api/temperature-checks/'+editingTempId, {method:'PUT', body});
+      showToast('Entry updated.');
+      editingTempId = null;
+      btn.textContent = 'Log check';
+    } else {
+      await api('/api/temperature-checks', {method:'POST', body});
+      showToast('Logged.');
+    }
+    ['tempLocation','tempValue','tempBy','tempNotes'].forEach(id=>document.getElementById(id).value='');
+    loadTempChecks();
+  } finally { btn.disabled = false; }
+});
+window.editTemp = (id)=>{
+  const t = tempCache.find(x=>x.id===id);
+  if(!t) return;
+  editingTempId = id;
+  document.getElementById('tempLocation').value = t.location;
+  document.getElementById('tempValue').value = t.temperature_c ?? '';
+  document.getElementById('tempPass').value = t.pass;
+  document.getElementById('tempBy').value = t.checked_by || '';
+  document.getElementById('tempNotes').value = t.notes || '';
+  document.getElementById('addTempBtn').textContent = 'Save changes';
+};
+window.deleteTemp = async (id)=>{ await api('/api/temperature-checks/'+id, {method:'DELETE'}); loadTempChecks(); };
+
+// ---------- BRANCHES (chain support) ----------
+let branchCache = [];
+async function loadBranches(){
+  branchCache = await api('/api/branches');
+  document.getElementById('branchBody').innerHTML = branchCache.map(b=>`
+    <tr><td>${esc(b.name)}</td><td>${esc(b.address)||''}</td><td><span style="cursor:pointer;color:var(--critical);" onclick="deleteBranch(${b.id})">✕</span></td></tr>`).join('');
+  const options = '<option value="">All / not branch-specific</option>' + branchCache.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+  const branchSelect = document.getElementById('invBranch');
+  if(branchSelect) branchSelect.innerHTML = options;
+
+  // Branch comparison on Reports only makes sense once there's more than one branch
+  document.getElementById('branchReportCard').style.display = branchCache.length > 1 ? 'block' : 'none';
+  if(branchCache.length > 1){
+    const rows = await api('/api/dashboard/by-branch');
+    document.getElementById('branchReportBody').innerHTML = rows.map(r=>`
+      <tr><td>${esc(r.branch_name)}</td><td class="num">GH₵ ${r.revenue.toFixed(2)}</td><td class="num">GH₵ ${r.waste.toFixed(2)}</td><td class="num">${r.dishCount}</td></tr>`).join('');
+  }
+}
+document.getElementById('addBranchBtn').addEventListener('click', async ()=>{
+  const name = document.getElementById('branchName').value.trim();
+  if(!name) return showToast('Branch name is required.');
+  await api('/api/branches', {method:'POST', body:{name, address: document.getElementById('branchAddress').value}});
+  document.getElementById('branchName').value=''; document.getElementById('branchAddress').value='';
+  showToast('Branch added.');
+  loadBranches();
+});
+window.deleteBranch = async (id)=>{ await api('/api/branches/'+id, {method:'DELETE'}); loadBranches(); };
+
+// ---------- STARTER KIT ----------
+document.getElementById('seedStarterBtn').addEventListener('click', async ()=>{
+  try{
+    const data = await api('/api/starter-kit/seed', {method:'POST'});
+    showToast(`Added ${data.ingredientsAdded} ingredients and ${data.dishesAdded} dishes.`);
+    loadEverything();
+  } catch(e){ showToast(e.message); }
+});
+
+// ---------- CSV IMPORTS ----------
+async function uploadCsv(path, fileInputId){
+  const fileInput = document.getElementById(fileInputId);
+  if(!fileInput.files.length) { showToast('Choose a CSV file first.'); return null; }
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  const res = await fetch(path, { method:'POST', credentials:'include', body: formData });
+  const data = await res.json().catch(()=>null);
+  if(!res.ok) { showToast((data && data.error) || 'Import failed.'); return null; }
+  return data;
+}
+function importResultMessage(data){
+  let msg = `Imported ${data.imported} of ${data.total} rows.`;
+  if(data.skippedDuplicate > 0) msg += ` ${data.skippedDuplicate} already existed and were skipped.`;
+  return msg;
+}
+function showUndoOption(data, reloadFn){
+  if(data.imported === 0) return; // nothing to undo
+  const undo = confirm(importResultMessage(data) + '\n\nMade a mistake? Click OK to undo this import immediately, or Cancel to keep it.');
+  if(undo){
+    api('/api/import/undo/'+data.batchId, {method:'DELETE'}).then(r=>{
+      showToast(`Undone — removed ${r.undone} rows.`);
+      reloadFn();
+    });
+  }
+}
+document.getElementById('invCsvBtn').addEventListener('click', async ()=>{
+  const data = await uploadCsv('/api/import/inventory', 'invCsvFile');
+  if(data){ loadInventory(); loadDashboard(); showUndoOption(data, ()=>{loadInventory(); loadDashboard();}); }
+});
+document.getElementById('custCsvBtn').addEventListener('click', async ()=>{
+  const data = await uploadCsv('/api/import/customers', 'custCsvFile');
+  if(data){ loadCustomers(); showUndoOption(data, loadCustomers); }
+});
+document.getElementById('dishCsvBtn').addEventListener('click', async ()=>{
+  const data = await uploadCsv('/api/import/dishes', 'dishCsvFile');
+  if(data){ loadDishes(); loadDashboard(); showUndoOption(data, ()=>{loadDishes(); loadDashboard();}); }
+});
+
+// ---------- RECEIPT SCANNING (experimental OCR) ----------
+document.getElementById('ocrBtn').addEventListener('click', async ()=>{
+  const fileInput = document.getElementById('ocrFile');
+  if(!fileInput.files.length) { showToast('Choose a photo first.'); return; }
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  showToast('Scanning — this can take a moment...');
+  try{
+    const res = await fetch('/api/ocr/receipt', { method:'POST', credentials:'include', body: formData });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || 'Scan failed.');
+    document.getElementById('ocrResults').style.display = 'block';
+    document.getElementById('ocrRows').innerHTML = data.candidates.map((c,i)=>`
+      <tr>
+        <td><input class="cell" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" id="ocrName${i}" value="${c.name_guess}"></td>
+        <td><input type="number" step="0.01" class="cell" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" id="ocrPrice${i}" value="${c.price_guess}"></td>
+        <td><button class="pill-btn" onclick="addOcrRow(${i})">+ Add to inventory</button></td>
+      </tr>`).join('') || '<tr><td colspan="3" style="color:var(--ink-soft);">No lines detected — try a clearer photo.</td></tr>';
+  } catch(e){ showToast(e.message); }
+});
+window.addOcrRow = async (i)=>{
+  const name = document.getElementById('ocrName'+i).value;
+  const cost = parseFloat(document.getElementById('ocrPrice'+i).value) || 0;
+  await api('/api/inventory', {method:'POST', body:{name, unit_cost: cost, qty_on_hand: 0}});
+  showToast(name + ' added to inventory.');
+  loadInventory(); loadDashboard();
+};
+
+// ---------- DASHBOARD ----------
+document.getElementById('getBriefBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('getBriefBtn');
+  btn.disabled = true; btn.textContent = 'Thinking...';
+  try{
+    const data = await api('/api/ai/daily-brief');
+    document.getElementById('aiBriefBox').style.display = 'block';
+    document.getElementById('aiBriefText').textContent = data.brief;
+  } catch(e){ showToast(e.message); }
+  btn.disabled = false; btn.textContent = "Get today's advice";
+});
+document.getElementById('getMenuSuggestionsBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('getMenuSuggestionsBtn');
+  btn.disabled = true; btn.textContent = 'Thinking...';
+  try{
+    const data = await api('/api/ai/menu-suggestions');
+    document.getElementById('menuSuggestionsBox').style.display = 'block';
+    document.getElementById('menuSuggestionsText').textContent = data.suggestions;
+  } catch(e){ showToast(e.message); }
+  btn.disabled = false; btn.textContent = 'Get suggestions';
+});
+document.getElementById('nlReportBtn').addEventListener('click', async ()=>{
+  const query = document.getElementById('nlReportQuery').value.trim();
+  if(!query) return;
+  const btn = document.getElementById('nlReportBtn');
+  btn.disabled = true; btn.textContent = 'Thinking...';
+  const resultEl = document.getElementById('nlReportResult');
+  try{
+    const data = await api('/api/ai/report-query', {method:'POST', body:{query}});
+    const reportLabels = { revenue:'Revenue', waste:'Waste', sales_by_dish:'Sales by dish', staff_performance:'Staff performance', cash_reconciliation:'Cash reconciliation' };
+    const periodLabels = { today:'today', this_week:'this week', this_month:'this month', last_month:'last month' };
+    if(!data.rows.length){
+      resultEl.innerHTML = `<p style="color:var(--ink-soft); font-size:13px;">${reportLabels[data.report_type]} for ${periodLabels[data.period]} — no data yet for that period.</p>`;
+    } else {
+      resultEl.innerHTML = `
+        <div style="font-size:12px; color:var(--ink-soft); margin-bottom:8px;">${reportLabels[data.report_type]} — ${periodLabels[data.period]}</div>
+        <table><thead><tr>${data.columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead>
+        <tbody>${data.rows.map(r=>`<tr>${r.map(v=>`<td>${esc(String(v))}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    }
+    resultEl.style.display = 'block';
+  } catch(e){ showToast(e.message); }
+  btn.disabled = false; btn.textContent = 'Ask';
+});
+document.getElementById('nlReportQuery').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('nlReportBtn').click(); });
+
+async function loadDashboard(){
+  const d = await api('/api/dashboard');
+  const cards = document.getElementById('dashCards');
+  cards.innerHTML = `
+    <div class="card"><div class="card-label">Revenue this month</div><div class="card-value">GH₵ ${d.revenueThisMonth.toFixed(2)}</div></div>
+    <div class="card"><div class="card-label">Waste this month</div><div class="card-value" style="color:${d.wasteThisMonth>0?'var(--critical)':'inherit'};">GH₵ ${d.wasteThisMonth.toFixed(2)}</div><div class="card-foot">${d.topWasteIngredient ? 'Most: '+d.topWasteIngredient : ''}</div></div>
+    <div class="card"><div class="card-label">Inventory items</div><div class="card-value">${d.inventoryCount}</div><div class="card-foot">${d.lowStock>0 ? '<span class="tag tag-critical">'+d.lowStock+' low stock</span>':''}</div></div>
+    <div class="card"><div class="card-label">Dishes costed</div><div class="card-value">${d.dishCount}</div></div>`;
+
+  const body = document.getElementById('dashBody');
+  if(d.isEmpty){
+    body.innerHTML = `<div class="card" style="text-align:center; padding:32px 20px;">
+      <div style="font-size:36px; margin-bottom:8px;">👋</div>
+      <h2 style="margin-bottom:6px;">Welcome to ${esc(ME.business.name)}</h2>
+      <p style="color:var(--ink-soft); font-size:13.5px; max-width:420px; margin:0 auto 22px;">
+        Every business starts completely empty — nothing is shared or copied from anyone else. Let's get your first data in, one of two ways:
+      </p>
+      <div style="display:flex; gap:14px; justify-content:center; flex-wrap:wrap; max-width:640px; margin:0 auto;">
+        <div style="flex:1; min-width:240px; border:1px solid var(--border); border-radius:12px; padding:20px; background:var(--card-bg,#FCF8F1);">
+          <div style="font-size:22px;">🇬🇭</div>
+          <div style="font-weight:700; margin:8px 0 4px;">Fastest: load a starter kit</div>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;">13 common Ghanaian ingredients and 6 popular dishes, ready in seconds. Edit or delete anything afterward — this is just a running start.</p>
+          <button class="btn btn-primary" onclick="switchToView('inventory'); setTimeout(()=>document.getElementById('seedStarterBtn').click(), 200);">Load starter kit</button>
+        </div>
+        <div style="flex:1; min-width:240px; border:1px solid var(--border); border-radius:12px; padding:20px;">
+          <div style="font-size:22px;">✍️</div>
+          <div style="font-weight:700; margin:8px 0 4px;">Or add your own</div>
+          <p style="font-size:12.5px; color:var(--ink-soft); margin:0 0 14px;">Type in your real ingredients and dishes directly, or import a spreadsheet if you already have a list in Excel.</p>
+          <button class="btn btn-outline" onclick="switchToView('inventory');">Go to Inventory</button>
+        </div>
+      </div>
+    </div>`;
+  } else {
+    body.innerHTML = `<div class="ai-box"><div class="ai-badge">✦</div><div>
+      <div class="ai-title">Snapshot</div>
+      <p>You're tracking <b>${d.inventoryCount}</b> ingredients and <b>${d.dishCount}</b> dishes. ${d.lowStock>0 ? 'You have <b>'+d.lowStock+'</b> items at or below reorder level — check Inventory.' : 'Nothing is below reorder level right now.'} ${d.wasteThisMonth>0 ? 'GH₵ '+d.wasteThisMonth.toFixed(2)+' has gone to waste this month, mostly '+(d.topWasteIngredient||'—')+'.' : 'No waste logged yet this month — keep it that way.'}</p>
+    </div></div>`;
+  }
+}
+
+// ---------- INVENTORY ----------
+async function loadInventory(){
+  inventoryCache = await api('/api/inventory');
+  const body = document.getElementById('invBody');
+  document.getElementById('invEmpty').style.display = inventoryCache.length ? 'none' : 'block';
+
+  const usage = inventoryCache.length ? await api('/api/analytics/inventory-usage') : [];
+  const usageById = {};
+  usage.forEach(u=>{ usageById[u.inventory_item_id] = u; });
+
+  body.innerHTML = inventoryCache.map(i=>{
+    const u = usageById[i.id] || { avg_daily_usage: 0, days_remaining: null };
+    const low = i.qty_on_hand <= i.reorder_level;
+    const expiring = i.shelf_life_days !== null && i.shelf_life_days <= 2;
+    const runningOutSoon = u.days_remaining !== null && u.days_remaining <= 3;
+    const branchName = i.branch_id ? (branchCache.find(b=>b.id===i.branch_id)?.name || '—') : 'All branches';
+    let statusTag = '<span class="tag tag-ok">Healthy</span>';
+    if(low && expiring) statusTag = '<span class="tag tag-critical">Low stock · expires soon</span>';
+    else if(low) statusTag = '<span class="tag tag-critical">Low stock</span>';
+    else if(expiring) statusTag = '<span class="tag tag-gold">Expires soon</span>';
+    const daysLeftDisplay = u.days_remaining === null
+      ? '<span style="color:var(--ink-soft);" title="Not enough sales history yet to estimate">—</span>'
+      : `<span style="${runningOutSoon?'color:var(--critical);font-weight:700;':''}" title="Using about ${u.avg_daily_usage} ${esc(i.unit)||'units'}/day, based on the last 30 days">${u.days_remaining}d</span>`;
+    return `<tr>
+      <td>${esc(i.name)}${i.category ? `<span style="color:var(--ink-soft);font-size:11px;"> · ${esc(i.category)}</span>` : ''}</td>
+      <td class="num">${i.qty_on_hand} ${esc(i.unit)||''}</td>
+      <td class="num">${(i.unit_cost||0).toFixed(2)}</td>
+      <td class="num">${daysLeftDisplay}</td>
+      <td>${esc(branchName)}</td>
+      <td>${statusTag}</td>
+      <td style="white-space:nowrap;">
+        <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editInv(${i.id})">✎</span>
+        <span style="cursor:pointer;margin-right:10px;" title="Duplicate" onclick="duplicateInv(${i.id})">⧉</span>
+        <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteInv(${i.id})">✕</span>
+      </td>
+    </tr>`;
+  }).join('');
+}
+let editingInvId = null;
+function fillInvForm(item){
+  document.getElementById('invName').value = item.name || '';
+  document.getElementById('invCategory').value = item.category || '';
+  document.getElementById('invUnit').value = item.unit || '';
+  document.getElementById('invUnitCost').value = item.unit_cost || '';
+  document.getElementById('invQty').value = item.qty_on_hand || '';
+  document.getElementById('invReorder').value = item.reorder_level || '';
+  document.getElementById('invShelf').value = item.shelf_life_days || '';
+  document.getElementById('invBranch').value = item.branch_id || '';
+}
+function clearInvForm(){
+  ['invName','invCategory','invUnit','invUnitCost','invQty','invReorder','invShelf'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('invBranch').value = '';
+}
+window.editInv = (id)=>{
+  const item = inventoryCache.find(i=>i.id===id);
+  if(!item) return;
+  editingInvId = id;
+  fillInvForm(item);
+  document.getElementById('invFormTitle').textContent = 'Edit stock item';
+  document.getElementById('addInvBtn').textContent = 'Save changes';
+  document.getElementById('cancelInvEditBtn').style.display = 'inline-block';
+  document.getElementById('invName').scrollIntoView({behavior:'smooth', block:'center'});
+};
+window.duplicateInv = (id)=>{
+  const item = inventoryCache.find(i=>i.id===id);
+  if(!item) return;
+  editingInvId = null;
+  fillInvForm(item);
+  document.getElementById('invName').value = item.name + ' (copy)';
+  document.getElementById('invFormTitle').textContent = 'Add stock item';
+  document.getElementById('addInvBtn').textContent = 'Add';
+  document.getElementById('cancelInvEditBtn').style.display = 'none';
+  showToast('Duplicated — edit and save as a new item.');
+};
+document.getElementById('cancelInvEditBtn').addEventListener('click', ()=>{
+  editingInvId = null;
+  clearInvForm();
+  document.getElementById('invFormTitle').textContent = 'Add stock item';
+  document.getElementById('addInvBtn').textContent = 'Add';
+  document.getElementById('cancelInvEditBtn').style.display = 'none';
+});
+document.getElementById('addInvBtn').addEventListener('click', async ()=>{
+  const body = {
+    name: document.getElementById('invName').value,
+    category: document.getElementById('invCategory').value,
+    unit: document.getElementById('invUnit').value,
+    unit_cost: parseFloat(document.getElementById('invUnitCost').value)||0,
+    qty_on_hand: parseFloat(document.getElementById('invQty').value)||0,
+    reorder_level: parseFloat(document.getElementById('invReorder').value)||0,
+    shelf_life_days: parseInt(document.getElementById('invShelf').value)||null,
+    branch_id: document.getElementById('invBranch').value || null
+  };
+  if(!body.name) return showToast('Ingredient name is required.');
+  if(editingInvId){
+    await api('/api/inventory/'+editingInvId, {method:'PUT', body});
+    showToast('Ingredient updated.');
+    editingInvId = null;
+    document.getElementById('invFormTitle').textContent = 'Add stock item';
+    document.getElementById('addInvBtn').textContent = 'Add';
+    document.getElementById('cancelInvEditBtn').style.display = 'none';
+  } else {
+    await api('/api/inventory', {method:'POST', body});
+    showToast('Ingredient added.');
+  }
+  clearInvForm();
+  loadInventory(); loadDashboard();
+});
+window.deleteInv = async (id)=>{ await api('/api/inventory/'+id, {method:'DELETE'}); loadInventory(); loadDashboard(); };
+
+// ---------- DISHES ----------
+let dishIngRows = [];
+function renderDishIngRows(){
+  document.getElementById('dishIngRows').innerHTML = dishIngRows.map((r,i)=>`
+    <tr>
+      <td>
+        <select class="cell" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" onchange="onDishIngInventoryChange(${i}, this.value)">
+          <option value="">— not linked to inventory —</option>
+          ${inventoryCache.map(inv=>`<option value="${inv.id}" ${String(r.inventory_item_id)===String(inv.id)?'selected':''}>${esc(inv.name)} (${esc(inv.unit)||'unit'})</option>`).join('')}
+        </select>
+        ${!r.inventory_item_id ? `<input placeholder="or type a free-text label, e.g. Shito batch" style="width:100%;margin-top:4px;border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:11px;" value="${esc(r.label)}" onchange="dishIngRows[${i}].label=this.value">` : ''}
+      </td>
+      <td><input type="number" step="0.01" placeholder="0.25" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" value="${r.quantity||''}" oninput="onDishIngQtyChange(${i}, this.value)"></td>
+      <td><input type="number" step="0.01" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" value="${r.cost}" oninput="dishIngRows[${i}].cost=parseFloat(this.value)||0; recalcLiveDish();"></td>
+      <td><span style="cursor:pointer;color:var(--critical);" onclick="dishIngRows.splice(${i},1); renderDishIngRows(); recalcLiveDish();">✕</span></td>
+    </tr>`).join('');
+}
+window.onDishIngInventoryChange = (i, invId)=>{
+  const row = dishIngRows[i];
+  row.inventory_item_id = invId || null;
+  const invItem = inventoryCache.find(x=>String(x.id)===String(invId));
+  if(invItem){
+    row.label = invItem.name;
+    if(row.quantity) row.cost = Math.round(row.quantity * invItem.unit_cost * 100) / 100;
+  }
+  renderDishIngRows();
+  recalcLiveDish();
+};
+window.onDishIngQtyChange = (i, val)=>{
+  const row = dishIngRows[i];
+  row.quantity = parseFloat(val) || 0;
+  const invItem = inventoryCache.find(x=>String(x.id)===String(row.inventory_item_id));
+  if(invItem) row.cost = Math.round(row.quantity * invItem.unit_cost * 100) / 100;
+  renderDishIngRows();
+  recalcLiveDish();
+};
+document.getElementById('addIngRow').addEventListener('click', ()=>{
+  dishIngRows.push({label:'', inventory_item_id:null, quantity:0, cost:0});
+  renderDishIngRows();
+});
+function recalcLiveDish(){
+  const cost = dishIngRows.reduce((s,r)=>s+(r.cost||0),0);
+  const price = parseFloat(document.getElementById('dishPrice').value)||0;
+  const targetMargin = parseFloat(document.getElementById('dishTargetMargin').value)||40;
+  const profit = price - cost;
+  const margin = price>0 ? (profit/price*100) : 0;
+  // Recommended price to hit the target margin: cost / (1 - target%)
+  const recommendedPrice = targetMargin < 100 ? cost / (1 - targetMargin/100) : cost;
+  const extraProfit = recommendedPrice - price;
+
+  document.getElementById('liveCost').textContent = 'GH₵ ' + cost.toFixed(2);
+  document.getElementById('liveSellingPrice').textContent = 'GH₵ ' + price.toFixed(2);
+  document.getElementById('liveProfit').textContent = 'GH₵ ' + profit.toFixed(2);
+  document.getElementById('liveMargin').textContent = margin.toFixed(1)+'%';
+  document.getElementById('liveTargetMarginDisplay').textContent = targetMargin+'%';
+  document.getElementById('liveRecommendedPrice').textContent = 'GH₵ ' + recommendedPrice.toFixed(2);
+
+  const marginEl = document.getElementById('liveMargin');
+  const adviceEl = document.getElementById('liveAdvice');
+  if(price === 0){
+    marginEl.style.color = 'var(--ink)';
+    adviceEl.textContent = '';
+  } else if(margin < targetMargin - 0.5){
+    marginEl.style.color = 'var(--critical)';
+    adviceEl.innerHTML = `<b>Below target.</b> Raise the price to about <b>GH₵ ${recommendedPrice.toFixed(2)}</b> to hit your ${targetMargin}% target — that's GH₵ ${extraProfit.toFixed(2)} more profit per plate.`;
+  } else {
+    marginEl.style.color = 'var(--ok)';
+    adviceEl.innerHTML = `<b>On target or better.</b> This dish is making at least what you're aiming for.`;
+  }
+}
+document.getElementById('dishPrice').addEventListener('input', recalcLiveDish);
+document.getElementById('dishTargetMargin').addEventListener('input', recalcLiveDish);
+
+document.getElementById('saveDishBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('saveDishBtn');
+  if(btn.disabled) return;
+  const name = document.getElementById('dishName').value.trim();
+  if(!name) return showToast('Dish name is required.');
+  btn.disabled = true;
+  try{
+    const body = {
+      name,
+      serves: parseInt(document.getElementById('dishServes').value)||1,
+      selling_price: parseFloat(document.getElementById('dishPrice').value)||0,
+      target_margin: parseFloat(document.getElementById('dishTargetMargin').value)||40,
+      ingredients: dishIngRows.map(r=>({label: r.label, inventory_item_id: r.inventory_item_id||null, quantity: r.quantity||0, cost:r.cost}))
+    };
+    if(editingDishId){
+      await api('/api/dishes/'+editingDishId, {method:'PUT', body});
+      showToast('Dish updated.');
+      editingDishId = null;
+      btn.textContent = 'Save dish';
+    } else {
+      await api('/api/dishes', {method:'POST', body});
+      showToast('Dish saved.');
+    }
+    document.getElementById('dishName').value=''; document.getElementById('dishPrice').value='';
+    dishIngRows = []; renderDishIngRows(); recalcLiveDish();
+    loadDishes(); loadDashboard();
+  } finally { btn.disabled = false; }
+});
+renderDishIngRows();
+
+function showModal(title, bodyHtml){
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalOverlay').style.display = 'flex';
+}
+window.closeModal = ()=>{ document.getElementById('modalOverlay').style.display = 'none'; };
+
+let dishCache = [];
+async function loadDishes(){
+  dishCache = await api('/api/dishes');
+  document.getElementById('dishEmpty').style.display = dishCache.length ? 'none':'block';
+  document.getElementById('dishBody').innerHTML = dishCache.map(d=>`
+    <tr>
+      <td>${esc(d.name)}<div style="font-size:11px;color:var(--ink-soft);">Serves ${d.serves}</div></td>
+      <td class="num">${d.cost.toFixed(2)}</td>
+      <td class="num">${d.selling_price.toFixed(2)}</td>
+      <td class="num" style="color:${d.margin<30?'var(--critical)':'var(--ok)'};">${d.margin.toFixed(1)}%</td>
+      <td style="white-space:nowrap;">
+        <span style="cursor:pointer;margin-right:10px;" title="View ingredients" onclick="viewDishIngredients(${d.id})">👁</span>
+        <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editDish(${d.id})">✎</span>
+        <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteDish(${d.id})">✕</span>
+      </td>
+    </tr>`).join('');
+}
+window.viewDishIngredients = (id)=>{
+  const d = dishCache.find(x=>x.id===id);
+  if(!d) return;
+  const rows = d.ingredients.length ? d.ingredients.map(i=>`
+    <tr><td style="padding:6px 0;">${esc(i.label)}${i.inventory_item_id ? ' <span style="color:var(--ok);font-size:10px;" title="Auto-deducts from inventory on sale">🔗 linked</span>' : ''}</td>
+    <td class="num" style="padding:6px 0;">${i.quantity || '—'}</td>
+    <td class="num mono" style="padding:6px 0;">${(i.cost||0).toFixed(2)}</td></tr>`).join('')
+    : '<tr><td colspan="3" style="color:var(--ink-soft); padding:6px 0;">No ingredients recorded for this dish.</td></tr>';
+  showModal(d.name, `
+    <div style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Serves ${d.serves} · Selling price GH₵ ${d.selling_price.toFixed(2)} · Margin ${d.margin.toFixed(1)}%</div>
+    <table style="width:100%;"><thead><tr><th style="text-align:left; font-size:11px; color:var(--ink-soft);">Ingredient</th><th class="num" style="font-size:11px; color:var(--ink-soft);">Qty</th><th class="num" style="font-size:11px; color:var(--ink-soft);">Cost (GH₵)</th></tr></thead><tbody>${rows}</tbody></table>
+    <div style="border-top:1px solid var(--border); margin-top:10px; padding-top:10px; font-weight:700;">Total cost: GH₵ ${d.cost.toFixed(2)}</div>
+    <div style="font-size:11px; color:var(--ink-soft); margin-top:6px;">🔗 linked ingredients automatically reduce inventory when this exact dish name appears on an invoice.</div>
+  `);
+};
+let editingDishId = null;
+window.editDish = (id)=>{
+  const d = dishCache.find(x=>x.id===id);
+  if(!d) return;
+  editingDishId = id;
+  document.getElementById('dishName').value = d.name;
+  document.getElementById('dishServes').value = d.serves;
+  document.getElementById('dishPrice').value = d.selling_price;
+  document.getElementById('dishTargetMargin').value = d.target_margin;
+  dishIngRows = d.ingredients.map(i=>({ label: i.label, inventory_item_id: i.inventory_item_id||null, quantity: i.quantity||0, cost: i.cost }));
+  renderDishIngRows();
+  recalcLiveDish();
+  document.getElementById('saveDishBtn').textContent = 'Save changes';
+  document.getElementById('dishName').scrollIntoView({behavior:'smooth', block:'center'});
+};
+window.deleteDish = async (id)=>{ await api('/api/dishes/'+id, {method:'DELETE'}); loadDishes(); loadDashboard(); };
+
+// ---------- WASTE ----------
+let wasteCache = [];
+async function loadWaste(){
+  wasteCache = await api('/api/waste');
+  document.getElementById('wasteEmpty').style.display = wasteCache.length ? 'none':'block';
+  document.getElementById('wasteBody').innerHTML = wasteCache.map(w=>`
+    <tr><td>${esc(w.ingredient)}</td><td class="num">${esc(w.quantity)||''}</td><td class="num">GH₵ ${(w.cost||0).toFixed(2)}</td><td>${esc(w.reason)||''}</td><td>${(w.created_at||'').slice(0,16)}</td>
+    <td style="white-space:nowrap;">
+      <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editWaste(${w.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteWaste(${w.id})">✕</span>
+    </td></tr>`).join('');
+  const total = wasteCache.reduce((s,w)=>s+(w.cost||0),0);
+  const top = {};
+  wasteCache.forEach(w=>top[w.ingredient]=(top[w.ingredient]||0)+(w.cost||0));
+  const topIng = Object.keys(top).sort((a,b)=>top[b]-top[a])[0];
+  document.getElementById('wasteCards').innerHTML = `
+    <div class="card"><div class="card-label">Total logged</div><div class="card-value">GH₵ ${total.toFixed(2)}</div></div>
+    <div class="card"><div class="card-label">Most wasted</div><div class="card-value" style="font-size:18px;">${esc(topIng)||'—'}</div></div>
+    <div class="card"><div class="card-label">Entries logged</div><div class="card-value">${wasteCache.length}</div></div>`;
+}
+let editingWasteId = null;
+document.getElementById('addWasteBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addWasteBtn');
+  if(btn.disabled) return;
+  const ingredient = document.getElementById('wIngredient').value.trim();
+  if(!ingredient) return showToast('Ingredient is required.');
+  btn.disabled = true;
+  try{
+    const body = { ingredient, quantity: document.getElementById('wQty').value, cost: parseFloat(document.getElementById('wCost').value)||0, reason: document.getElementById('wReason').value };
+    if(editingWasteId){
+      await api('/api/waste/'+editingWasteId, {method:'PUT', body});
+      showToast('Entry updated.');
+      editingWasteId = null;
+      btn.textContent = 'Log entry';
+    } else {
+      await api('/api/waste', {method:'POST', body});
+      showToast('Waste logged.');
+    }
+    ['wIngredient','wQty','wCost'].forEach(id=>document.getElementById(id).value='');
+    loadWaste(); loadDashboard();
+  } finally { btn.disabled = false; }
+});
+window.editWaste = (id)=>{
+  const w = wasteCache.find(x=>x.id===id);
+  if(!w) return;
+  editingWasteId = id;
+  document.getElementById('wIngredient').value = w.ingredient;
+  document.getElementById('wQty').value = w.quantity || '';
+  document.getElementById('wCost').value = w.cost || '';
+  document.getElementById('wReason').value = w.reason || 'Spoiled';
+  document.getElementById('addWasteBtn').textContent = 'Save changes';
+};
+window.deleteWaste = async (id)=>{ await api('/api/waste/'+id, {method:'DELETE'}); loadWaste(); loadDashboard(); };
+
+// ---------- SUPPLIERS ----------
+let supplierCache = [];
+async function loadSuppliers(){
+  supplierCache = await api('/api/suppliers');
+  document.getElementById('supEmpty').style.display = supplierCache.length ? 'none':'block';
+
+  const analytics = supplierCache.length ? await api('/api/analytics/suppliers') : {suppliers:[], recommendations:[]};
+  const scoreById = {};
+  analytics.suppliers.forEach(s=>{ scoreById[s.id] = s.reliability_score; });
+
+  document.getElementById('supBody').innerHTML = supplierCache.map(s=>{
+    const score = scoreById[s.id] ?? 100;
+    const scoreColor = score >= 80 ? 'var(--ok)' : score >= 50 ? 'var(--gold)' : 'var(--critical)';
+    return `<tr><td>${esc(s.name)}</td><td>${esc(s.item)||''}</td><td class="num">${(s.price||0).toFixed(2)}</td><td class="num">${s.late_delivery_pct||0}%</td><td>${esc(s.quality)||''}</td>
+    <td class="num"><b style="color:${scoreColor};">${score}</b></td>
+    <td style="white-space:nowrap;">
+      <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editSup(${s.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteSup(${s.id})">✕</span>
+    </td></tr>`;
+  }).join('');
+
+  const recEl = document.getElementById('supRecommendations');
+  if(analytics.recommendations && analytics.recommendations.length){
+    recEl.innerHTML = `<div class="ai-box"><div class="ai-badge">⚖</div><div>
+      <div class="ai-title">When you have a choice</div>
+      ${analytics.recommendations.map(r=>`<p style="margin:4px 0;"><b>${esc(r.item)}</b>: <b>${esc(r.cheapest)}</b> is cheapest, <b>${esc(r.most_reliable)}</b> is most reliable.${r.cheapest===r.most_reliable?' Same supplier — easy choice.':''}</p>`).join('')}
+    </div></div>`;
+  } else {
+    recEl.innerHTML = '';
+  }
+}
+let editingSupId = null;
+document.getElementById('addSupBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addSupBtn');
+  if(btn.disabled) return;
+  const name = document.getElementById('supName').value.trim();
+  if(!name) return showToast('Supplier name is required.');
+  btn.disabled = true;
+  try{
+    const body = { name, item: document.getElementById('supItem').value, price: parseFloat(document.getElementById('supPrice').value)||0, late_delivery_pct: parseFloat(document.getElementById('supLate').value)||0, quality: document.getElementById('supQuality').value };
+    if(editingSupId){
+      await api('/api/suppliers/'+editingSupId, {method:'PUT', body});
+      showToast('Supplier updated.');
+      editingSupId = null;
+      btn.textContent = 'Add';
+    } else {
+      await api('/api/suppliers', {method:'POST', body});
+      showToast('Supplier added.');
+    }
+    ['supName','supItem','supPrice','supLate','supQuality'].forEach(id=>document.getElementById(id).value='');
+    loadSuppliers();
+  } finally { btn.disabled = false; }
+});
+window.editSup = (id)=>{
+  const s = supplierCache.find(x=>x.id===id);
+  if(!s) return;
+  editingSupId = id;
+  document.getElementById('supName').value = s.name;
+  document.getElementById('supItem').value = s.item || '';
+  document.getElementById('supPrice').value = s.price || '';
+  document.getElementById('supLate').value = s.late_delivery_pct || '';
+  document.getElementById('supQuality').value = s.quality || '';
+  document.getElementById('addSupBtn').textContent = 'Save changes';
+};
+window.deleteSup = async (id)=>{ await api('/api/suppliers/'+id, {method:'DELETE'}); loadSuppliers(); };
+
+// ---------- INVOICES ----------
+let invRows = [{item:'', qty:1, price:0}];
+let taxRate = 0.219;
+function renderInvRows(){
+  document.getElementById('invoiceRows').innerHTML = invRows.map((r,i)=>`
+    <tr>
+      <td><input style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" value="${r.item}" oninput="invRows[${i}].item=this.value"></td>
+      <td><input type="number" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" value="${r.qty}" oninput="invRows[${i}].qty=parseFloat(this.value)||0; recalcInv();"></td>
+      <td><input type="number" step="0.5" style="width:100%;border:1px solid var(--border);border-radius:6px;padding:6px 8px;" value="${r.price}" oninput="invRows[${i}].price=parseFloat(this.value)||0; recalcInv();"></td>
+      <td class="num mono">${(r.qty*r.price).toFixed(2)}</td>
+    </tr>`).join('');
+}
+document.getElementById('addInvRow').addEventListener('click', ()=>{ invRows.push({item:'',qty:1,price:0}); renderInvRows(); });
+document.querySelectorAll('.tax-opt').forEach(opt=>{
+  opt.addEventListener('click', ()=>{
+    document.querySelectorAll('.tax-opt').forEach(o=>{o.style.background='transparent'; o.style.color='var(--ink)';});
+    opt.style.background='var(--cocoa)'; opt.style.color='#fff';
+    taxRate = parseFloat(opt.dataset.rate);
+    recalcInv();
+  });
+});
+function recalcInv(){
+  const subtotal = invRows.reduce((s,r)=>s+r.qty*r.price,0);
+  const tax = subtotal*taxRate;
+  const tip = parseFloat(document.getElementById('invTip').value)||0;
+  document.getElementById('invSubtotal').textContent = subtotal.toFixed(2);
+  document.getElementById('invTax').textContent = tax.toFixed(2);
+  document.getElementById('invTipDisplay').textContent = tip.toFixed(2);
+  document.getElementById('invTotal').textContent = (subtotal+tax+tip).toFixed(2);
+}
+document.getElementById('invTip').addEventListener('input', recalcInv);
+document.getElementById('createInvoiceBtn').addEventListener('click', async ()=>{
+  const items = invRows.filter(r=>r.item);
+  if(!items.length) return showToast('Add at least one line item.');
+  const tip_amount = parseFloat(document.getElementById('invTip').value)||0;
+  const body = { customer_name: document.getElementById('invCustomer').value || 'Walk-in customer', tax_rate: taxRate, items, tip_amount, payment_method: document.getElementById('invPaymentMethod').value, staff_id: document.getElementById('invStaffId').value || null, customer_id: document.getElementById('invCustomerId').value || null };
+  const result = await api('/api/invoices', {method:'POST', body});
+  document.getElementById('invTip').value = '';
+  invRows = [{item:'',qty:1,price:0}]; renderInvRows(); recalcInv();
+  document.getElementById('invCustomer').value='';
+  document.getElementById('invCustomerId').value='';
+  if(result.inventoryDeductions && result.inventoryDeductions.length){
+    const lines = result.inventoryDeductions.map(d=>`${d.inventory_item}: -${d.deducted} ${d.unit||''} (${d.remaining.toFixed(1)} left)`).join('\n');
+    showToast(`Invoice created. Auto-deducted: ${result.inventoryDeductions.length} inventory item(s).`);
+    showModal('Inventory auto-updated', `<p style="font-size:12.5px;">This invoice matched known dishes, so inventory was reduced automatically:</p><ul style="font-size:13px; padding-left:18px;">${result.inventoryDeductions.map(d=>`<li>${esc(d.inventory_item)}: −${d.deducted} ${esc(d.unit)||''} <span style="color:var(--ink-soft);">(${d.remaining.toFixed(1)} left)</span></li>`).join('')}</ul>`);
+  } else {
+    showToast('Invoice created.');
+  }
+  loadInvoices(); loadDashboard(); loadInventory();
+});
+async function loadInvoices(){
+  const rows = await api('/api/invoices');
+  document.getElementById('invEmpty2').style.display = rows.length ? 'none':'block';
+  document.getElementById('invoiceHistBody').innerHTML = rows.map(inv=>`
+    <tr><td>${esc(inv.customer_name)}</td><td class="num">${inv.subtotal.toFixed(2)}</td><td class="num">${inv.tax.toFixed(2)}</td><td class="num">${inv.total.toFixed(2)}</td>
+    <td><span class="tag ${inv.status==='paid'?'tag-ok':'tag-gold'}" style="cursor:pointer;" title="Click to toggle paid/unpaid" onclick="toggleInvoiceStatus(${inv.id}, '${inv.status}')">${inv.status}</span></td>
+    <td>${(inv.created_at||'').slice(0,10)}</td>
+    <td><a href="/api/invoices/${inv.id}/pdf" target="_blank" class="pill-btn" style="text-decoration:none;">⬇ PDF</a></td></tr>`).join('');
+}
+window.toggleInvoiceStatus = async (id, currentStatus)=>{
+  const next = currentStatus === 'paid' ? 'unpaid' : 'paid';
+  await api('/api/invoices/'+id+'/status', {method:'PATCH', body:{status: next}});
+  loadInvoices();
+};
+
+// ---------- CASH RECONCILIATION ----------
+document.getElementById('reconDate').valueAsDate = new Date();
+document.getElementById('reconLoadExpectedBtn').addEventListener('click', async ()=>{
+  const date = document.getElementById('reconDate').value;
+  const data = await api('/api/cash-reconciliation/expected?date='+date);
+  document.getElementById('reconCashExpected').value = data.expected.cash.toFixed(2);
+  document.getElementById('reconMomoExpected').value = data.expected.momo.toFixed(2);
+  document.getElementById('reconPosExpected').value = data.expected.pos.toFixed(2);
+  updateReconDiff();
+  showToast('Pulled expected totals from today\'s invoices.');
+});
+function updateReconDiff(){
+  ['Cash','Momo','Pos'].forEach(k=>{
+    const exp = parseFloat(document.getElementById('recon'+k+'Expected').value)||0;
+    const act = parseFloat(document.getElementById('recon'+k+'Actual').value)||0;
+    const diff = act - exp;
+    const el = document.getElementById('recon'+k+'Diff');
+    el.textContent = (diff>=0?'+':'')+diff.toFixed(2);
+    el.style.color = Math.abs(diff) < 0.01 ? 'var(--ok)' : 'var(--critical)';
+  });
+}
+let editingReconId = null;
+document.getElementById('reconSaveBtn').addEventListener('click', async ()=>{
+  const body = {
+    reconciliation_date: document.getElementById('reconDate').value,
+    counted_by: document.getElementById('reconCountedBy').value,
+    notes: document.getElementById('reconNotes').value,
+    cash_expected: parseFloat(document.getElementById('reconCashExpected').value)||0,
+    cash_actual: parseFloat(document.getElementById('reconCashActual').value)||0,
+    momo_expected: parseFloat(document.getElementById('reconMomoExpected').value)||0,
+    momo_actual: parseFloat(document.getElementById('reconMomoActual').value)||0,
+    pos_expected: parseFloat(document.getElementById('reconPosExpected').value)||0,
+    pos_actual: parseFloat(document.getElementById('reconPosActual').value)||0,
+  };
+  if(editingReconId){
+    await api('/api/cash-reconciliation/'+editingReconId, {method:'PUT', body});
+    showToast('Cash count updated.');
+    editingReconId = null;
+    document.getElementById('reconSaveBtn').textContent = 'Save count';
+  } else {
+    await api('/api/cash-reconciliation', {method:'POST', body});
+    showToast('Cash count saved.');
+  }
+  ['reconCashExpected','reconCashActual','reconMomoExpected','reconMomoActual','reconPosExpected','reconPosActual','reconNotes','reconCountedBy'].forEach(id=>document.getElementById(id).value='');
+  loadReconciliations();
+});
+let reconCache = [];
+async function loadReconciliations(){
+  reconCache = await api('/api/cash-reconciliation');
+  document.getElementById('reconEmpty').style.display = reconCache.length ? 'none':'block';
+  document.getElementById('reconHistBody').innerHTML = reconCache.map(r=>{
+    const totalExpected = r.cash_expected + r.momo_expected + r.pos_expected;
+    const totalActual = r.cash_actual + r.momo_actual + r.pos_actual;
+    const diff = totalActual - totalExpected;
+    return `<tr><td>${r.reconciliation_date}</td><td>${esc(r.counted_by)||'—'}</td>
+      <td class="num">${totalExpected.toFixed(2)}</td><td class="num">${totalActual.toFixed(2)}</td>
+      <td class="num mono" style="color:${Math.abs(diff)<0.01?'var(--ok)':'var(--critical)'};">${diff>=0?'+':''}${diff.toFixed(2)}</td>
+      <td style="font-size:12px;">${esc(r.notes)||''}</td>
+      <td style="white-space:nowrap;">
+        <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editRecon(${r.id})">✎</span>
+        <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteRecon(${r.id})">✕</span>
+      </td></tr>`;
+  }).join('');
+}
+window.editRecon = (id)=>{
+  const r = reconCache.find(x=>x.id===id);
+  if(!r) return;
+  editingReconId = id;
+  document.getElementById('reconDate').value = r.reconciliation_date;
+  document.getElementById('reconCountedBy').value = r.counted_by || '';
+  document.getElementById('reconNotes').value = r.notes || '';
+  document.getElementById('reconCashExpected').value = r.cash_expected;
+  document.getElementById('reconCashActual').value = r.cash_actual;
+  document.getElementById('reconMomoExpected').value = r.momo_expected;
+  document.getElementById('reconMomoActual').value = r.momo_actual;
+  document.getElementById('reconPosExpected').value = r.pos_expected;
+  document.getElementById('reconPosActual').value = r.pos_actual;
+  updateReconDiff();
+  document.getElementById('reconSaveBtn').textContent = 'Save changes';
+  document.getElementById('reconDate').scrollIntoView({behavior:'smooth', block:'center'});
+};
+window.deleteRecon = async (id)=>{ await api('/api/cash-reconciliation/'+id, {method:'DELETE'}); loadReconciliations(); };
+
+// ---------- PURCHASE ORDERS ----------
+async function loadPOSuggestions(){
+  const suggestions = await api('/api/purchase-orders/suggestions');
+  const el = document.getElementById('poSuggestions');
+  if(!suggestions.length){
+    el.innerHTML = '<p style="font-size:13px;color:var(--ink-soft);">Nothing is currently low on stock.</p>';
+    return;
+  }
+  el.innerHTML = `
+    <table><thead><tr><th></th><th>Item</th><th class="num">On hand</th><th class="num">Suggested qty</th><th class="num">Est. cost</th></tr></thead>
+    <tbody>${suggestions.map((s,i)=>`<tr>
+      <td><input type="checkbox" class="po-suggest-check" data-idx="${i}" checked></td>
+      <td>${esc(s.item_name)}</td><td class="num">${s.current_qty} ${esc(s.unit)||''}</td>
+      <td class="num"><input type="number" step="0.1" value="${s.suggested_quantity.toFixed(1)}" style="width:70px;text-align:right;" class="po-suggest-qty" data-idx="${i}"></td>
+      <td class="num">GH₵ ${(s.suggested_quantity * s.unit_cost).toFixed(2)}</td>
+    </tr>`).join('')}</tbody></table>
+    <div style="margin-top:12px; display:flex; gap:10px; align-items:flex-end;">
+      <div><label class="small">Supplier (optional)</label><select id="poSupplierSelect"><option value="">— no supplier chosen —</option>${supplierCache.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div>
+      <button class="btn btn-primary" id="poGenerateBtn">Generate purchase order</button>
+    </div>`;
+  window.__poSuggestions = suggestions;
+  document.getElementById('poGenerateBtn').addEventListener('click', async ()=>{
+    const items = [];
+    document.querySelectorAll('.po-suggest-check:checked').forEach(cb=>{
+      const idx = cb.dataset.idx;
+      const qty = parseFloat(document.querySelector(`.po-suggest-qty[data-idx="${idx}"]`).value)||0;
+      const s = window.__poSuggestions[idx];
+      if(qty > 0) items.push({ inventory_item_id: s.inventory_item_id, item_name: s.item_name, quantity: qty, unit_cost: s.unit_cost });
+    });
+    if(!items.length) return showToast('Select at least one item.');
+    const supplierId = document.getElementById('poSupplierSelect').value || null;
+    await api('/api/purchase-orders', {method:'POST', body:{supplier_id: supplierId, items}});
+    showToast('Purchase order created.');
+    loadPurchaseOrders(); loadPOSuggestions();
+  });
+}
+async function loadPurchaseOrders(){
+  const orders = await api('/api/purchase-orders');
+  document.getElementById('poEmpty').style.display = orders.length ? 'none':'block';
+  document.getElementById('poBody').innerHTML = orders.map(o=>{
+    const totalCost = o.items.reduce((s,i)=>s+i.quantity*i.unit_cost,0);
+    const statusTag = { draft:'tag-gold', sent:'tag-gold', received:'tag-ok', cancelled:'tag-critical' }[o.status] || 'tag-gold';
+    return `<tr><td>#${o.id}</td><td>${esc(o.supplier_name)||'—'}</td>
+      <td style="font-size:12px;">${o.items.map(i=>esc(i.item_name)+' ('+i.quantity+')').join(', ')}</td>
+      <td class="num">GH₵ ${totalCost.toFixed(2)}</td>
+      <td><span class="tag ${statusTag}">${o.status}</span></td>
+      <td>${(o.created_at||'').slice(0,10)}</td>
+      <td>${o.status==='draft' ? `<button class="pill-btn" onclick="markPOReceived(${o.id})">Mark received</button>` : ''}
+        <span style="cursor:pointer;color:var(--critical);margin-left:6px;" onclick="deletePO(${o.id})">✕</span></td></tr>`;
+  }).join('');
+  loadPOSuggestions(); // refresh suggestions too — a received PO changes what's still low
+}
+window.markPOReceived = async (id)=>{
+  await api('/api/purchase-orders/'+id+'/status', {method:'PATCH', body:{status:'received'}});
+  showToast('Marked received — inventory updated automatically.');
+  loadPurchaseOrders(); loadInventory();
+};
+window.deletePO = async (id)=>{ await api('/api/purchase-orders/'+id, {method:'DELETE'}); loadPurchaseOrders(); };
+renderInvRows(); recalcInv();
+
+// ---------- CUSTOMERS ----------
+let customerCache = [];
+async function loadCustomers(){
+  customerCache = await api('/api/customers');
+  document.getElementById('custEmpty').style.display = customerCache.length ? 'none':'block';
+
+  const loyalty = customerCache.length ? await api('/api/analytics/customers') : [];
+  const loyaltyById = {};
+  loyalty.forEach(l=>{ loyaltyById[l.id] = l; });
+  const tierStyle = { Gold: 'background:#FBF0DC;color:#9A6C1E;', Silver: 'background:#EEF1F4;color:#5A6472;', Regular: 'background:#F1E7D8;color:var(--ink-soft);' };
+
+  document.getElementById('custBody').innerHTML = customerCache.map(c=>{
+    const l = loyaltyById[c.id] || { tier:'Regular', lifetime_spend:0, favorite_dish:null };
+    return `<tr>
+    <td>${esc(c.name)}</td><td>${esc(c.phone)||''}</td>
+    <td><span class="tag" style="${tierStyle[l.tier]}">${l.tier==='Gold'?'★ ':''}${l.tier}</span></td>
+    <td class="num">${c.visits||0}</td>
+    <td class="num">GH₵ ${l.lifetime_spend.toFixed(2)}</td>
+    <td>${esc(l.favorite_dish)||'<span style="color:var(--ink-soft);">—</span>'}</td>
+    <td style="font-size:12px;">${c.last_visit_at ? c.last_visit_at.slice(0,10) : '<span style="color:var(--ink-soft);">never</span>'}</td>
+    <td>${esc(c.birthday)||'—'}</td>
+    <td style="white-space:nowrap;">
+      <button class="pill-btn" style="margin-right:6px;" onclick="logCustVisit(${c.id})">+1 visit</button>
+      <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editCust(${c.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteCust(${c.id})">✕</span>
+    </td></tr>`;
+  }).join('');
+  const invCustSel = document.getElementById('invCustomerId');
+  if(invCustSel) invCustSel.innerHTML = '<option value="">— not a returning customer (walk-in) —</option>' + customerCache.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
+}
+document.getElementById('invCustomerId').addEventListener('change', function(){
+  const c = customerCache.find(x=>String(x.id)===this.value);
+  if(c) document.getElementById('invCustomer').value = c.name;
+});
+let editingCustId = null;
+document.getElementById('addCustBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addCustBtn');
+  if(btn.disabled) return; // prevents the double-click-creates-two-customers bug
+  const name = document.getElementById('custName').value.trim();
+  if(!name) return showToast('Customer name is required.');
+  btn.disabled = true;
+  try{
+    const body = { name, phone: document.getElementById('custPhone').value, birthday: document.getElementById('custBday').value, visits: 0 };
+    if(editingCustId){
+      await api('/api/customers/'+editingCustId, {method:'PUT', body});
+      showToast('Customer updated.');
+      editingCustId = null;
+      btn.textContent = 'Add';
+    } else {
+      await api('/api/customers', {method:'POST', body});
+      showToast('Customer added.');
+    }
+    ['custName','custPhone','custBday'].forEach(id=>document.getElementById(id).value='');
+    loadCustomers();
+  } finally { btn.disabled = false; }
+});
+window.editCust = (id)=>{
+  const c = customerCache.find(x=>x.id===id);
+  if(!c) return;
+  editingCustId = id;
+  document.getElementById('custName').value = c.name;
+  document.getElementById('custPhone').value = c.phone || '';
+  document.getElementById('custBday').value = c.birthday || '';
+  document.getElementById('addCustBtn').textContent = 'Save changes';
+  document.getElementById('custName').scrollIntoView({behavior:'smooth', block:'center'});
+};
+window.logCustVisit = async (id)=>{
+  const c = customerCache.find(x=>x.id===id);
+  if(!c) return;
+  await api('/api/customers/'+id, {method:'PUT', body:{visits:(c.visits||0)+1}});
+  loadCustomers();
+};
+window.deleteCust = async (id)=>{ await api('/api/customers/'+id, {method:'DELETE'}); loadCustomers(); };
+
+// ---------- STAFF ----------
+let staffCache = [];
+async function loadStaff(){
+  staffCache = await api('/api/staff');
+  document.getElementById('staffEmpty').style.display = staffCache.length ? 'none':'block';
+
+  const perf = staffCache.length ? await api('/api/analytics/staff') : [];
+  const perfById = {};
+  perf.forEach(p=>{ perfById[p.id] = p; });
+
+  document.getElementById('staffBody').innerHTML = staffCache.map(s=>{
+    const p = perfById[s.id] || { sales_generated:0, avg_order_value:0, void_rate:null };
+    const voidRateColor = (p.void_rate!==null && p.void_rate > 15) ? 'var(--critical)' : 'var(--ink)';
+    const voidRateDisplay = p.void_rate===null ? '<span style="color:var(--ink-soft);" title="Not enough orders tracked this month to calculate yet">—</span>' : p.void_rate.toFixed(0)+'%';
+    return `<tr>
+    <td>${esc(s.name)}</td><td>${esc(s.role)||''}</td><td class="num">${s.orders_served||0}</td><td class="num">${s.voids||0}</td>
+    <td class="num">GH₵ ${p.sales_generated.toFixed(2)}</td>
+    <td class="num">GH₵ ${p.avg_order_value.toFixed(2)}</td>
+    <td class="num" style="color:${voidRateColor};">${voidRateDisplay}</td>
+    <td style="white-space:nowrap;">
+      <button class="pill-btn" style="margin-right:4px;" onclick="logStaffOrder(${s.id})">+1 order</button>
+      <button class="pill-btn" style="margin-right:6px;" onclick="logStaffVoid(${s.id})">+1 void</button>
+      <span style="cursor:pointer;margin-right:10px;" title="Edit" onclick="editStaff(${s.id})">✎</span>
+      <span style="cursor:pointer;color:var(--critical);" title="Delete" onclick="deleteStaff(${s.id})">✕</span>
+    </td></tr>`;
+  }).join('');
+  const invStaffSel = document.getElementById('invStaffId');
+  if(invStaffSel) invStaffSel.innerHTML = '<option value="">— not tracked —</option>' + staffCache.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+}
+let editingStaffId = null;
+document.getElementById('addStaffBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('addStaffBtn');
+  if(btn.disabled) return;
+  const name = document.getElementById('staffName').value.trim();
+  if(!name) return showToast('Staff name is required.');
+  btn.disabled = true;
+  try{
+    const body = { name, role: document.getElementById('staffRole').value };
+    if(editingStaffId){
+      await api('/api/staff/'+editingStaffId, {method:'PUT', body});
+      showToast('Staff updated.');
+      editingStaffId = null;
+      btn.textContent = 'Add';
+    } else {
+      await api('/api/staff', {method:'POST', body: {...body, orders_served:0, sales_per_labor_hr:0, voids:0}});
+      showToast('Staff added.');
+    }
+    ['staffName','staffRole'].forEach(id=>document.getElementById(id).value='');
+    loadStaff();
+  } finally { btn.disabled = false; }
+});
+window.editStaff = (id)=>{
+  const s = staffCache.find(x=>x.id===id);
+  if(!s) return;
+  editingStaffId = id;
+  document.getElementById('staffName').value = s.name;
+  document.getElementById('staffRole').value = s.role || '';
+  document.getElementById('addStaffBtn').textContent = 'Save changes';
+};
+window.logStaffOrder = async (id)=>{
+  const s = staffCache.find(x=>x.id===id);
+  await api('/api/staff/'+id, {method:'PUT', body:{orders_served:(s.orders_served||0)+1}});
+  loadStaff();
+};
+window.logStaffVoid = async (id)=>{
+  const s = staffCache.find(x=>x.id===id);
+  await api('/api/staff/'+id, {method:'PUT', body:{voids:(s.voids||0)+1}});
+  loadStaff();
+};
+window.deleteStaff = async (id)=>{ await api('/api/staff/'+id, {method:'DELETE'}); loadStaff(); };
+
+// ---------- REPORTS ----------
+let chartInstances = {};
+onViewActivated['reports'] = async ()=>{
+  const d = await api('/api/dashboard');
+  document.getElementById('reportsBody').innerHTML = `
+    Revenue: <b>GH₵ ${d.revenueThisMonth.toFixed(2)}</b><br>
+    Waste: <b>GH₵ ${d.wasteThisMonth.toFixed(2)}</b> ${d.topWasteIngredient ? '(mostly '+esc(d.topWasteIngredient)+')' : ''}<br>
+    Tips: <b>GH₵ ${(d.tipsThisMonth||0).toFixed(2)}</b><br>
+    Dishes costed: <b>${d.dishCount}</b><br>
+    Customers on file: <b>${d.customerCount}</b><br>
+    Staff on team: <b>${d.staffCount}</b><br>
+    Inventory items below reorder level: <b>${d.lowStock}</b>`;
+
+  // Health score
+  const health = await api('/api/dashboard/health-score');
+  document.getElementById('healthScoreNum').textContent = health.overall;
+  const circumference = 314;
+  const offset = circumference - (health.overall / 100) * circumference;
+  const ring = document.getElementById('healthRing');
+  ring.setAttribute('stroke-dashoffset', offset);
+  ring.setAttribute('stroke', health.overall >= 70 ? 'var(--forest)' : health.overall >= 45 ? 'var(--gold)' : 'var(--critical)');
+  const labels = { inventory:'Inventory', waste:'Waste Control', suppliers:'Suppliers', pricing:'Pricing', customer_loyalty:'Customer Loyalty', staff:'Staff', profitability:'Profitability' };
+  document.getElementById('healthBars').innerHTML = Object.entries(health.categories).map(([key,val])=>`
+    <div class="bar-row"><div class="bar-label">${labels[key]}</div><div class="bar-track"><div class="bar-fill" style="width:${val}%;background:${val>=70?'var(--forest)':val>=45?'var(--gold)':'var(--critical)'};"></div></div><div class="bar-val">${val}</div></div>`).join('');
+
+  // Narrative insights — real, specific recommendations
+  const insights = await api('/api/dashboard/insights');
+  const insightStyle = { good:{bg:'var(--ok-bg)',color:'var(--ok)',icon:'✓'}, warning:{bg:'#FBF0DC',color:'#9A6C1E',icon:'!'}, critical:{bg:'var(--critical-bg)',color:'var(--critical)',icon:'⚠'} };
+  document.getElementById('narrativeInsights').innerHTML = insights.map(i=>{
+    const s = insightStyle[i.type] || insightStyle.good;
+    return `<div style="display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border);">
+      <div style="flex-shrink:0; width:22px; height:22px; border-radius:50%; background:${s.bg}; color:${s.color}; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700;">${s.icon}</div>
+      <p style="margin:0; font-size:13px; line-height:1.5;">${esc(i.text)}</p>
+    </div>`;
+  }).join('');
+
+  // Charts
+  const charts = await api('/api/dashboard/charts');
+  const chartColors = ['#8B4A24','#D9A441','#3F6B4F','#C0602F','#39424C','#B23A2A'];
+
+  if(chartInstances.revenue) chartInstances.revenue.destroy();
+  chartInstances.revenue = new Chart(document.getElementById('revenueChart'), {
+    type:'line',
+    data:{ labels: charts.dailyRevenue.map(r=>r.day.slice(5)), datasets:[{ label:'Revenue (GH₵)', data: charts.dailyRevenue.map(r=>r.revenue), borderColor:'#8B4A24', backgroundColor:'rgba(139,74,36,0.08)', fill:true, tension:0.3 }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+
+  if(chartInstances.waste) chartInstances.waste.destroy();
+  chartInstances.waste = new Chart(document.getElementById('wasteChart'), {
+    type:'doughnut',
+    data:{ labels: charts.wasteByIngredient.map(w=>w.ingredient), datasets:[{ data: charts.wasteByIngredient.map(w=>w.total), backgroundColor: chartColors }] },
+    options:{ plugins:{legend:{position:'right', labels:{boxWidth:12,font:{size:11}}}} }
+  });
+
+  if(chartInstances.topItems) chartInstances.topItems.destroy();
+  chartInstances.topItems = new Chart(document.getElementById('topItemsChart'), {
+    type:'bar',
+    data:{ labels: charts.topItems.map(i=>i.item), datasets:[{ label:'Quantity sold', data: charts.topItems.map(i=>i.qty), backgroundColor:'#D9A441' }] },
+    options:{ indexAxis:'y', plugins:{legend:{display:false}} }
+  });
+
+  // Sales by hour
+  const byHour = await api('/api/analytics/sales-by-hour');
+  if(chartInstances.salesByHour) chartInstances.salesByHour.destroy();
+  chartInstances.salesByHour = new Chart(document.getElementById('salesByHourChart'), {
+    type:'bar',
+    data:{ labels: byHour.map(h=>String(h.hour).padStart(2,'0')+':00'), datasets:[{ label:'Revenue (GH₵)', data: byHour.map(h=>h.revenue), backgroundColor:'#8B4A24' }] },
+    options:{ plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true}} }
+  });
+
+  // Sales by dish — best and worst sellers
+  const byDish = await api('/api/analytics/sales-by-dish');
+  document.getElementById('salesByDishEmpty').style.display = byDish.length ? 'none' : 'block';
+  document.getElementById('salesByDishBody').innerHTML = byDish.map((d,i)=>{
+    const isWorst = i >= byDish.length - 3 && byDish.length > 3; // flag the bottom 3 if there's a meaningful list
+  }).join('');
+};
+function recalcBreakEven(){
+  const fixed = parseFloat(document.getElementById('beFixed').value)||0;
+  const profit = parseFloat(document.getElementById('beProfit').value)||1;
+  const plates = Math.ceil(fixed/profit);
+  document.getElementById('beResult').textContent = plates.toLocaleString();
+  document.getElementById('bePerDay').textContent = Math.ceil(plates/30);
+}
+document.getElementById('beFixed').addEventListener('input', recalcBreakEven);
+document.getElementById('beProfit').addEventListener('input', recalcBreakEven);
+
+// ---------- SETTINGS ----------
+document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+  const body = {
+    name: document.getElementById('setBizName').value,
+    currency: document.getElementById('setCurrency').value,
+    momo_number: document.getElementById('setMomo').value,
+    vat_rate: parseFloat(document.getElementById('setVatRate').value)||0,
+    vat_enabled: parseInt(document.getElementById('setVatEnabled').value),
+    nhil_rate: parseFloat(document.getElementById('setNhilRate').value)||0,
+    nhil_enabled: parseInt(document.getElementById('setNhilEnabled').value),
+    tourism_levy_rate: parseFloat(document.getElementById('setTourismRate').value)||0,
+    tourism_levy_enabled: parseInt(document.getElementById('setTourismEnabled').value)
+  };
+  const updated = await api('/api/business', {method:'PUT', body});
+  ME.business = {...ME.business, ...updated};
+  document.getElementById('sidebarBrand').textContent = updated.name;
+  showToast('Settings saved.');
+});
+document.getElementById('inviteBtn').addEventListener('click', async ()=>{
+  const role = document.getElementById('inviteRole').value;
+  const checked = [...document.querySelectorAll('.invite-module:checked')].map(cb=>cb.value);
+  const checkedDelete = [...document.querySelectorAll('.invite-delete-module:checked')].map(cb=>cb.value);
+  const passwordFieldVisible = document.getElementById('invitePasswordField').style.display !== 'none';
+  const body = {
+    name: document.getElementById('inviteName').value,
+    email: document.getElementById('inviteEmail').value,
+    role,
+    permissions: role === 'manager' ? undefined : checked,
+    can_delete: role === 'manager' ? undefined : checkedDelete
+  };
+  if(passwordFieldVisible) body.password = document.getElementById('invitePassword').value;
+  if(!body.name || !body.email) return showToast('Name and email are required.');
+  if(passwordFieldVisible && !body.password) return showToast('A temporary password is required since email isn\'t configured.');
+  try{
+    const result = await api('/api/auth/invite', {method:'POST', body});
+    ['inviteName','inviteEmail','invitePassword'].forEach(id=>document.getElementById(id).value='');
+    document.querySelectorAll('.invite-module, .invite-delete-module').forEach(cb=>cb.checked=false);
+    showToast(result.emailed ? 'Invite sent — they\'ll get an email to set their password.' : 'Teammate added — share the temporary password with them yourself.');
+    loadTeam();
+  } catch(e){ showToast(e.message); }
+});
+document.getElementById('inviteRole').addEventListener('change', (e)=>{
+  const dim = e.target.value === 'manager' ? '0.4' : '1';
+  document.getElementById('invitePermissions').style.opacity = dim;
+  document.getElementById('inviteDeletePermissions').style.opacity = dim;
+});
+let teamCache = [];
+const MODULE_LABELS = { inventory:'Inventory', menu:'Menu', customers:'Customers', invoices:'Invoices', reports:'Reports', settings:'Settings' };
+async function loadTeam(){
+  teamCache = await api('/api/auth/team');
+  document.getElementById('teamBody').innerHTML = teamCache.map(r=>{
+    const modules = r.role === 'owner' || r.permissions === null ? 'Full access' : (r.permissions.map(m=>MODULE_LABELS[m]||m).join(', ') || 'None yet');
+    const deleteModules = r.role === 'owner' || r.role === 'manager' ? 'Full access' : ((r.can_delete||[]).map(m=>MODULE_LABELS[m]||m).join(', ') || 'None');
+    return `<tr><td>${esc(r.name)}</td><td>${esc(r.email)}</td><td style="text-transform:capitalize;">${esc(r.role)}</td><td style="font-size:12px;">${esc(modules)}</td><td style="font-size:12px;">${esc(deleteModules)}</td>
+      <td>${r.role==='owner' ? '' : `<span style="cursor:pointer;" title="Edit access" onclick="editTeammate(${r.id})">✎</span>`}</td></tr>`;
+  }).join('');
+}
+window.editTeammate = (id)=>{
+  const t = teamCache.find(x=>x.id===id);
+  if(!t) return;
+  const perms = t.permissions || [];
+  const canDel = t.can_delete || [];
+  const moduleRow = (val, label) => `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox" class="edit-perm-module" value="${val}" ${perms.includes(val)?'checked':''}> ${label}</label>`;
+  const deleteRow = (val, label) => `<label style="display:flex;align-items:center;gap:6px;margin:4px 0;"><input type="checkbox" class="edit-delete-module" value="${val}" ${canDel.includes(val)?'checked':''}> ${label}</label>`;
+  showModal(`Edit access — ${t.name}`, `
+    <label class="small">Role</label>
+    <select id="editTeamRole" style="margin-bottom:12px;">
+      <option value="staff" ${t.role==='staff'?'selected':''}>Staff (choose modules)</option>
+      <option value="manager" ${t.role==='manager'?'selected':''}>Manager (full access)</option>
+    </select>
+    <div id="editTeamPerms" style="${t.role==='manager'?'opacity:0.4;':''}">
+      <div style="display:flex; gap:20px;">
+        <div><b style="font-size:12px;">Can access</b>${Object.entries(MODULE_LABELS).map(([v,l])=>moduleRow(v,l)).join('')}</div>
+        <div><b style="font-size:12px;">Can also delete from</b>${['inventory','menu','customers','reports','settings'].map(v=>deleteRow(v,MODULE_LABELS[v])).join('')}</div>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:14px;" onclick="saveTeammateEdit(${id})">Save</button>
+  `);
+  document.getElementById('editTeamRole').addEventListener('change', (e)=>{
+    document.getElementById('editTeamPerms').style.opacity = e.target.value === 'manager' ? '0.4' : '1';
+  });
+};
+window.saveTeammateEdit = async (id)=>{
+  const role = document.getElementById('editTeamRole').value;
+  const permissions = [...document.querySelectorAll('.edit-perm-module:checked')].map(cb=>cb.value);
+  const can_delete = [...document.querySelectorAll('.edit-delete-module:checked')].map(cb=>cb.value);
+  await api('/api/auth/team/'+id, {method:'PATCH', body:{ role, permissions: role==='manager'?null:permissions, can_delete: role==='manager'?null:can_delete }});
+  closeModal();
+  showToast('Access updated.');
+  loadTeam();
+};
+
+// ---------- SETTINGS SUB-TABS ----------
+document.querySelectorAll('.sub-tab[data-settings-tab]').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.sub-tab[data-settings-tab]').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const key = tab.dataset.settingsTab;
+    document.querySelectorAll('.settings-panel').forEach(p=>{
+      p.style.display = p.dataset.settingsPanel === key ? 'block' : 'none';
+    });
+  });
+});
+
+// ---------- TWO-FACTOR AUTH ----------
+onViewActivated['settings'] = async ()=>{
+  document.getElementById('twofaOff').style.display = ME.user.twofa_enabled ? 'none' : 'block';
+  document.getElementById('twofaOn').style.display = ME.user.twofa_enabled ? 'block' : 'none';
+  document.getElementById('twofaSetup').style.display = 'none';
+  if(ME.emailVerificationEnabled){
+    document.getElementById('invitePasswordField').style.display = 'none';
+    document.getElementById('inviteSectionSub').textContent = "They'll get an email with a link to set their own password. A Manager gets full access by default; for Staff, pick exactly which modules they can use.";
+  } else {
+    document.getElementById('invitePasswordField').style.display = 'block';
+    document.getElementById('inviteSectionSub').textContent = "Email isn't configured on this server, so set a temporary password and share it with them yourself. A Manager gets full access by default; for Staff, pick exactly which modules they can use.";
+  }
+  loadTeam();
+  loadSessions();
+  document.getElementById('setSessionDays').value = ME.business.session_length_days || 7;
+  document.getElementById('setAutoReorder').checked = !!ME.business.auto_reorder_enabled;
+  const rows = await api('/api/auth/activity');
+  document.getElementById('activityEmpty').style.display = rows.length ? 'none' : 'block';
+  document.getElementById('activityBody').innerHTML = rows.map(r=>{
+    const eventLabel = { login:'Login', login_failed:'Failed login', '2fa_enabled':'2FA enabled', '2fa_disabled':'2FA disabled', settings_changed:'Settings changed', teammate_invited:'Teammate invited', item_deleted:'Item deleted', auto_po_created:'Auto-order placed' }[r.event] || r.event;
+    const tagClass = (r.event === 'login_failed' || r.event === 'item_deleted') ? 'tag-critical' : 'tag-ok';
+    return `<tr><td>${(r.created_at||'').slice(0,16)}</td><td><span class="tag ${tagClass}">${esc(eventLabel)}</span></td><td>${esc(r.user_name)||'—'}</td><td>${esc(r.detail)||''}</td><td class="mono" style="font-size:11px;">${esc(r.ip_address)||''}</td></tr>`;
+  }).join('');
+};
+async function loadSessions(){
+  const rows = await api('/api/auth/sessions');
+  document.getElementById('sessionsBody').innerHTML = rows.map(s=>`
+    <tr><td>${esc(s.device_info)||'Unknown device'}${s.is_current ? ' <span class="tag tag-ok" style="font-size:9px;">this device</span>' : ''}</td>
+    <td class="mono" style="font-size:11px;">${esc(s.ip_address)||''}</td>
+    <td style="font-size:12px;">${(s.last_seen_at||'').slice(0,16)}</td>
+    <td>${s.is_current ? '' : `<span style="cursor:pointer;color:var(--critical);" onclick="revokeSession(${s.id})">Log out</span>`}</td></tr>`).join('');
+}
+window.revokeSession = async (id)=>{
+  await api('/api/auth/sessions/'+id, {method:'DELETE'});
+  showToast('That device has been logged out.');
+  loadSessions();
+};
+document.getElementById('saveSessionDaysBtn').addEventListener('click', async ()=>{
+  const days = parseInt(document.getElementById('setSessionDays').value);
+  try{
+    const updated = await api('/api/business', {method:'PUT', body:{session_length_days: days}});
+    ME.business.session_length_days = updated.session_length_days;
+    showToast('Saved. This applies to logins from now on — it won\'t change sessions already active.');
+  } catch(e){ showToast(e.message); }
+});
+document.getElementById('saveAutoReorderBtn').addEventListener('click', async ()=>{
+  const enabled = document.getElementById('setAutoReorder').checked;
+  const updated = await api('/api/business', {method:'PUT', body:{auto_reorder_enabled: enabled}});
+  ME.business.auto_reorder_enabled = updated.auto_reorder_enabled;
+  showToast(enabled ? 'Automatic reordering turned on.' : 'Automatic reordering turned off.');
+});
+document.getElementById('start2faBtn').addEventListener('click', async ()=>{
+  const data = await api('/api/auth/2fa/setup');
+  document.getElementById('twofaQr').src = data.qrDataUrl;
+  document.getElementById('twofaSecretText').textContent = data.secret;
+  document.getElementById('twofaOff').style.display = 'none';
+  document.getElementById('twofaSetup').style.display = 'block';
+});
+document.getElementById('confirm2faBtn').addEventListener('click', async ()=>{
+  const code = document.getElementById('twofaConfirmCode').value.trim();
+  try{
+    await api('/api/auth/2fa/confirm', {method:'POST', body:{code}});
+    ME.user.twofa_enabled = true;
+    document.getElementById('twofaSetup').style.display = 'none';
+    document.getElementById('twofaOn').style.display = 'block';
+    showToast('2FA enabled.');
+  } catch(e){ showToast(e.message); }
+});
+document.getElementById('disable2faBtn').addEventListener('click', async ()=>{
+  const password = document.getElementById('disable2faPassword').value;
+  try{
+    await api('/api/auth/2fa/disable', {method:'POST', body:{password}});
+    ME.user.twofa_enabled = false;
+    document.getElementById('twofaOn').style.display = 'none';
+    document.getElementById('twofaOff').style.display = 'block';
+    document.getElementById('disable2faPassword').value = '';
+    showToast('2FA disabled.');
+  } catch(e){ showToast(e.message); }
+});
+</script>
+</body>
+</html>

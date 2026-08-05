@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROMS Ghana — Stop losing money you can't see</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,900;1,9..144,500&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF4EA; --surface:#FFFFFF; --border:#E9DCC9; --ink:#2B2118; --ink-soft:#8C7A68;
+    --cocoa:#8B4A24; --cocoa-deep:#5E3117; --gold:#D9A441; --forest:#3F6B4F; --terracotta:#C0602F;
+    --critical:#B23A2A; --critical-bg:#FBE7E1; --ok:#3F6B4F; --ok-bg:#E7F0E9; --navy:#39424C;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{ margin:0; background:var(--cream); color:var(--ink); font-family:'Public Sans',sans-serif; -webkit-font-smoothing:antialiased; }
+  h1,h2,h3{ font-family:'Fraunces',serif; letter-spacing:-0.01em; margin:0; }
+  .mono{font-family:'JetBrains Mono',monospace;}
+  a{ color:inherit; }
+  .kente{ height:5px; width:100%; background:repeating-linear-gradient(90deg,
+      var(--cocoa) 0px, var(--cocoa) 18px, var(--gold) 18px, var(--gold) 30px,
+      var(--forest) 30px, var(--forest) 42px, var(--terracotta) 42px, var(--terracotta) 60px); }
+  .wrap{ max-width:1140px; margin:0 auto; padding:0 28px; }
+
+  /* NAV */
+  nav.top{ display:flex; align-items:center; justify-content:space-between; padding:20px 0; }
+  .logo{ font-size:20px; font-weight:700; color:var(--cocoa-deep); }
+  .navlinks{ display:flex; gap:28px; font-size:13.5px; font-weight:600; }
+  .navlinks a:hover{ color:var(--cocoa); }
+  .btn{ display:inline-block; border:none; border-radius:9px; padding:11px 20px; font-size:13.5px; font-weight:700; cursor:pointer; text-decoration:none; }
+  .btn-primary{ background:var(--cocoa); color:#fff; } .btn-primary:hover{ background:var(--cocoa-deep); }
+  .btn-outline{ border:1px solid var(--border); background:transparent; }
+
+  /* HERO */
+  .hero{ padding:64px 0 40px; display:grid; grid-template-columns:1.1fr 0.9fr; gap:48px; align-items:center; }
+  .eyebrow{ display:inline-flex; align-items:center; gap:8px; background:#F6EAD8; color:var(--cocoa-deep); font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:20px; margin-bottom:18px; }
+  .hero h1{ font-size:46px; line-height:1.08; font-weight:700; }
+  .hero h1 em{ font-style:normal; color:var(--cocoa); }
+  .hero p.lede{ font-size:16.5px; color:var(--ink-soft); line-height:1.6; margin:20px 0 26px; max-width:480px; }
+  .hero-ctas{ display:flex; gap:12px; align-items:center; }
+  .hero-ctas .fine{ font-size:11.5px; color:var(--ink-soft); }
+
+  .hero-visual{ background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:22px; box-shadow:0 1px 2px rgba(43,33,24,.05), 0 20px 50px rgba(43,33,24,.08); }
+  .hv-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .hv-title{ font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); font-weight:700; }
+  .hv-card{ background:#FCF8F1; border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:10px; }
+  .hv-num{ font-family:'Fraunces',serif; font-size:22px; font-weight:700; }
+  .hv-critical{ color:var(--critical); }
+  .flow-mini{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-soft); margin-top:4px; }
+  .flow-mini b{ color:var(--ink); font-family:'JetBrains Mono',monospace; }
+
+  /* PAIN SECTION */
+  .pain{ padding:60px 0 20px; }
+  .pain h2{ font-size:30px; text-align:center; margin-bottom:8px; }
+  .pain .sub{ text-align:center; color:var(--ink-soft); font-size:14.5px; margin-bottom:40px; }
+  .pain-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; }
+  .pain-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; }
+  .pain-card .icon{ font-size:22px; margin-bottom:10px; }
+  .pain-card h3{ font-size:15px; margin-bottom:6px; }
+  .pain-card p{ font-size:13px; color:var(--ink-soft); line-height:1.55; margin:0; }
+
+  /* FEATURES */
+  .features{ padding:70px 0; }
+  .features h2{ font-size:30px; text-align:center; margin-bottom:8px; }
+  .features .sub{ text-align:center; color:var(--ink-soft); font-size:14.5px; margin-bottom:44px; }
+  .feat-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+  .feat-card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; position:relative; }
+  .feat-card .num{ position:absolute; top:18px; right:20px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--border); }
+  .feat-card h3{ font-size:15px; margin-bottom:8px; }
+  .feat-card p{ font-size:13px; color:var(--ink-soft); line-height:1.55; margin:0; }
+  .feat-tag{ display:inline-block; font-size:10px; font-weight:700; background:var(--ok-bg); color:var(--ok); padding:2px 8px; border-radius:6px; margin-bottom:10px; }
+
+  /* GHANA STRIP */
+  .ghana-strip{ background:var(--cocoa-deep); color:#fff; padding:50px 0; }
+  .ghana-strip h2{ color:#fff; font-size:26px; margin-bottom:8px; }
+  .ghana-strip .sub{ color:#E9D3BC; font-size:14px; margin-bottom:28px; max-width:560px; }
+  .chip-row{ display:flex; flex-wrap:wrap; gap:10px; }
+  .chip{ background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.18); border-radius:20px; padding:8px 16px; font-size:12.5px; }
+
+  /* PRICING */
+  .pricing{ padding:70px 0; }
+  .pricing h2{ font-size:30px; text-align:center; margin-bottom:8px; }
+  .pricing .sub{ text-align:center; color:var(--ink-soft); font-size:14.5px; margin-bottom:40px; }
+  .price-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; align-items:stretch; }
+  .price-card{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:26px; display:flex; flex-direction:column; }
+  .price-card.featured{ border:2px solid var(--cocoa); position:relative; }
+  .price-badge{ position:absolute; top:-12px; left:24px; background:var(--cocoa); color:#fff; font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:20px; }
+  .price-card h3{ font-size:16px; margin-bottom:6px; }
+  .price-card .amt{ font-family:'Fraunces',serif; font-size:32px; font-weight:700; margin:10px 0 4px; }
+  .price-card .per{ font-size:12px; color:var(--ink-soft); margin-bottom:18px; }
+  .price-card ul{ list-style:none; padding:0; margin:0 0 22px; font-size:13px; color:var(--ink); line-height:2; flex:1; }
+  .price-card ul li:before{ content:'✓ '; color:var(--forest); font-weight:700; }
+
+  /* CTA */
+  .final-cta{ padding:70px 0 90px; text-align:center; }
+  .final-cta h2{ font-size:32px; margin-bottom:14px; }
+  .final-cta p{ color:var(--ink-soft); font-size:14.5px; margin-bottom:26px; }
+
+  footer{ border-top:1px solid var(--border); padding:28px 0; font-size:12px; color:var(--ink-soft); display:flex; justify-content:space-between; }
+
+  @media (max-width:880px){
+    .hero{ grid-template-columns:1fr; }
+    .pain-grid, .feat-grid, .price-grid{ grid-template-columns:1fr; }
+    .hero h1{ font-size:34px; }
+    .navlinks{ display:none; }
+  }
+</style>
+</head>
+<body>
+<div class="kente"></div>
+<div class="wrap">
+  <nav class="top">
+    <div class="logo">ROMS Ghana</div>
+    <div class="navlinks">
+      <a href="#problem">The problem</a>
+      <a href="#features">What it does</a>
+      <a href="#pricing">Pricing</a>
+    </div>
+    <a class="btn btn-primary" href="app.html">Log in / Start free trial</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <section class="hero">
+    <div>
+      <div class="eyebrow">🇬🇭 Built for Ghanaian food businesses</div>
+      <h1>You don't need software that helps you <em>run</em> your restaurant.<br>You need software that helps you <em>keep</em> the money.</h1>
+      <p class="lede">Most restaurant software tracks what happened. ROMS Ghana tells you, every morning, what to do about it — before the tomatoes spoil, before the menu price falls behind cost, before a quiet Tuesday becomes a loss.</p>
+      <div class="hero-ctas">
+        <a class="btn btn-primary" href="app.html">Start free — 30 days</a>
+        <a class="btn btn-outline" href="#features">See what it does ↓</a>
+      </div>
+      <div class="hero-ctas" style="margin-top:14px;">
+        <span class="fine">No card required. Your data stays yours — one company, one private workspace.</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hv-row"><span class="hv-title">Today's AI summary</span><span style="font-size:16px;">✦</span></div>
+      <div class="hv-card">
+        <div style="font-size:12.5px; line-height:1.6;">Good morning. <b>14 chicken breasts</b> expire tomorrow. Sell six grilled-chicken specials today or expect ~<b class="mono">GH₵ 180</b> in waste.</div>
+      </div>
+      <div class="hv-row" style="margin-top:18px;"><span class="hv-title">Jollof + Chicken — margin</span></div>
+      <div class="hv-card" style="display:flex; justify-content:space-between; align-items:center;">
+        <div><div style="font-size:11px; color:var(--ink-soft);">Real cost</div><div class="hv-num">18.45</div></div>
+        <div style="color:var(--ink-soft);">→</div>
+        <div><div style="font-size:11px; color:var(--ink-soft);">Margin</div><div class="hv-num hv-critical">24.6%</div></div>
+        <div style="color:var(--ink-soft);">→</div>
+        <div><div style="font-size:11px; color:var(--ink-soft);">Recommended</div><div class="hv-num" style="color:var(--forest);">32.50</div></div>
+      </div>
+      <div class="flow-mini">⚠ Below your 30% margin threshold — raise the price GH₵ 8 to fix it.</div>
+    </div>
+  </section>
+</div>
+
+<section class="pain" id="problem">
+  <div class="wrap">
+    <h2>The losses that never show up on paper</h2>
+    <div class="sub">You already know if today was busy. You don't know where the quiet money went.</div>
+    <div class="pain-grid">
+      <div class="pain-card"><div class="icon">🍅</div><h3>Spoilage treated as normal</h3><p>Waste gets written off as "just business" instead of measured, so it never gets smaller.</p></div>
+      <div class="pain-card"><div class="icon">🏷</div><h3>Menu prices that never move</h3><p>Ingredient costs creep up every month. Menu prices don't follow, and margin quietly disappears.</p></div>
+      <div class="pain-card"><div class="icon">🍽</div><h3>Portions that grow on their own</h3><p>A 180g portion becomes 270g over time. Nobody's stealing — it's just drift, and it adds up.</p></div>
+      <div class="pain-card"><div class="icon">📋</div><h3>No idea what's actually profitable</h3><p>Your most popular dish and your most profitable dish are rarely the same one.</p></div>
+      <div class="pain-card"><div class="icon">🧾</div><h3>Invoicing by memory</h3><p>Standing corporate orders tracked on paper, or not tracked at all.</p></div>
+      <div class="pain-card"><div class="icon">📱</div><h3>MoMo, cash and POS never reconciled</h3><p>Three channels, three totals, and nobody checking they match at close.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <h2>What ROMS Ghana actually does</h2>
+    <div class="sub">Not a point-of-sale system. An operations manager in your pocket.</div>
+    <div class="feat-grid">
+      <div class="feat-card"><div class="num">01</div><h3>Know which dishes actually make you profit</h3><p>Every ingredient's real cost rolls up into every dish automatically. Change a supplier price once, every menu item's margin updates.</p></div>
+      <div class="feat-card"><div class="num">02</div><h3>Catch spoilage before it happens</h3><p>Know what's about to spoil before it does, with a plain-English suggestion for what to do about it today.</p></div>
+      <div class="feat-card"><div class="num">03</div><h3>See exactly where money disappears every month</h3><p>Log what's thrown away and why. See the pattern — usually it's one ingredient, one reason, fixable in a week.</p></div>
+      <div class="feat-card"><span class="feat-tag">NEW</span><h3>Know if this month is better or worse, at a glance</h3><p>One number out of 100 — inventory, profitability, waste control — computed from your real data, not a guess.</p></div>
+      <div class="feat-card"><span class="feat-tag">NEW</span><h3>Catch cash shortfalls the same day, not weeks later</h3><p>MTN MoMo, Telecel Cash, AirtelTigo, cash and card — matched against expected totals automatically.</p></div>
+      <div class="feat-card"><h3>Stop paying more for less reliable delivery</h3><p>See the real cost of a supplier once you factor in late deliveries and the spoilage they cause — not just the sticker price.</p></div>
+      <div class="feat-card"><h3>Stop tracking invoices by memory</h3><p>Standing accounts, VAT and NHIL/GETFund estimates, generated in seconds instead of remembered.</p></div>
+      <div class="feat-card"><h3>Turn regulars into automatic rewards</h3><p>Tied to a phone number. Ten meals earns a reward automatically — no punch cards to lose.</p></div>
+      <div class="feat-card"><span class="feat-tag">NEW</span><h3>Know exactly how many plates until you're profitable</h3><p>Fixed costs ÷ profit per plate = the real number for this month, updated as your numbers change.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="ghana-strip">
+  <div class="wrap">
+    <h2>Built around how Ghanaian food businesses actually operate</h2>
+    <div class="sub">Not a US or UK product with the currency symbol swapped out.</div>
+    <div class="chip-row">
+      <div class="chip">💳 MTN MoMo, Telecel Cash, AirtelTigo reconciliation</div>
+      <div class="chip">⚖️ Local units — bags, crates, bowls, gallons</div>
+      <div class="chip">💬 WhatsApp order &amp; supplier messaging</div>
+      <div class="chip">🔌 Offline mode for power outages — syncs when it's back</div>
+      <div class="chip">🧾 VAT / NHIL / GETFund-aware invoicing</div>
+      <div class="chip">🤝 Flexible credit tracking for trusted regulars</div>
+    </div>
+  </div>
+</section>
+
+<section class="pricing" id="pricing">
+  <div class="wrap">
+    <h2>Simple pricing, no surprises</h2>
+    <div class="sub">30 days free on any plan. Pay only once it's already saving you more than it costs.</div>
+    <div class="price-grid">
+      <div class="price-card">
+        <h3>Starter</h3>
+        <div class="amt">GH₵ 79</div>
+        <div class="per">per month, single location</div>
+        <ul>
+          <li>Dish costing &amp; margin tracking</li>
+          <li>Inventory &amp; expiry alerts</li>
+          <li>Waste tracker &amp; food safety logs</li>
+          <li>Invoicing</li>
+          <li>Up to 2 team logins</li>
+        </ul>
+        <a class="btn btn-outline" href="app.html">Start free trial</a>
+      </div>
+      <div class="price-card featured">
+        <div class="price-badge">Most restaurants pick this</div>
+        <h3>Growth</h3>
+        <div class="amt">GH₵ 199</div>
+        <div class="per">per month, single location</div>
+        <ul>
+          <li>Everything in Starter</li>
+          <li>Cash reconciliation &amp; purchase orders</li>
+          <li>Supplier reliability scoring</li>
+          <li>Customer loyalty tiers</li>
+          <li>Consulting-style monthly reports</li>
+          <li>Unlimited team logins with granular permissions</li>
+        </ul>
+        <a class="btn btn-primary" href="app.html">Start free trial</a>
+      </div>
+      <div class="price-card">
+        <h3>Enterprise</h3>
+        <div class="amt">Custom</div>
+        <div class="per">for 2+ locations</div>
+        <ul>
+          <li>Everything in Growth</li>
+          <li>Branch-to-branch comparison</li>
+          <li>Dedicated onboarding &amp; support</li>
+          <li>Custom reporting on request</li>
+        </ul>
+        <a class="btn btn-outline" href="app.html">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="wrap">
+    <h2>Your first 30 days are free. Your first ingredient list takes five minutes.</h2>
+    <p>Every business gets its own private workspace — nothing is shared, nothing is pre-loaded. You start at zero and it fills in as you use it.</p>
+    <a class="btn btn-primary" href="app.html" style="padding:14px 28px; font-size:14.5px;">Create your business account →</a>
+  </div>
+</section>
+
+<div class="wrap">
+  <footer>
+    <div>ROMS Ghana — Restaurant Operations, per business.</div>
+    <div>Accra, Ghana</div>
+  </footer>
+</div>
+</body>
+</html>

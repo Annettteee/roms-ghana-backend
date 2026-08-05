@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROMS Ghana — Status</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF4EA; --surface:#FFFFFF; --border:#E9DCC9; --ink:#2B2118; --ink-soft:#8C7A68;
+    --cocoa:#8B4A24; --cocoa-deep:#5E3117; --gold:#D9A441; --forest:#3F6B4F; --terracotta:#C0602F;
+    --ok:#3F6B4F; --ok-bg:#E7F0E9; --critical:#B23A2A; --critical-bg:#FBE7E1;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--cream); color:var(--ink); font-family:'Public Sans',sans-serif; }
+  h1{ font-family:'Fraunces',serif; }
+  .kente{ height:5px; width:100%; background:repeating-linear-gradient(90deg, var(--cocoa) 0px, var(--cocoa) 18px, var(--gold) 18px, var(--gold) 30px, var(--forest) 30px, var(--forest) 42px, var(--terracotta) 42px, var(--terracotta) 60px); }
+  .wrap{ max-width:640px; margin:0 auto; padding:48px 24px; }
+  .overall{ display:flex; align-items:center; gap:14px; padding:20px 24px; border-radius:14px; margin-bottom:28px; }
+  .overall.ok{ background:var(--ok-bg); color:var(--ok); }
+  .overall.bad{ background:var(--critical-bg); color:var(--critical); }
+  .dot{ width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+  .dot.ok{ background:var(--ok); }
+  .dot.bad{ background:var(--critical); }
+  .row{ display:flex; justify-content:space-between; align-items:center; padding:16px 0; border-bottom:1px solid var(--border); }
+  .row:last-child{ border-bottom:none; }
+  .tag{ font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; display:flex; align-items:center; gap:6px; }
+  .tag.ok{ background:var(--ok-bg); color:var(--ok); }
+  .tag.bad{ background:var(--critical-bg); color:var(--critical); }
+  .sub{ color:var(--ink-soft); font-size:13px; margin-top:4px; }
+  .foot{ color:var(--ink-soft); font-size:12.5px; margin-top:32px; line-height:1.6; }
+  .checked-at{ color:var(--ink-soft); font-size:12px; margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="kente"></div>
+<div class="wrap">
+  <h1 style="font-size:24px; margin-bottom:4px;">ROMS Ghana Status</h1>
+  <p class="sub" style="margin-bottom:28px;">A live check, run right now in your browser — not a historical uptime record.</p>
+
+  <div class="overall" id="overallBox">
+    <div class="dot" id="overallDot"></div>
+    <div>
+      <div id="overallText" style="font-weight:700; font-size:15px;">Checking…</div>
+      <div class="checked-at" id="checkedAt"></div>
+    </div>
+  </div>
+
+  <div style="background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:8px 20px;">
+    <div class="row">
+      <div>
+        <div style="font-weight:600;">API server</div>
+        <div class="sub">Responds to requests at all.</div>
+      </div>
+      <div class="tag" id="apiTag">Checking…</div>
+    </div>
+    <div class="row">
+      <div>
+        <div style="font-weight:600;">Database</div>
+        <div class="sub">Your data is reachable and readable.</div>
+      </div>
+      <div class="tag" id="dbTag">Checking…</div>
+    </div>
+  </div>
+
+  <p class="foot">
+    This page makes one request to <code>/api/health</code> when you load it — it does not track history, does not page anyone, and does not run automatically in the background. If something looks wrong here and you need help, contact your ROMS Ghana representative directly.
+  </p>
+</div>
+
+<script>
+async function checkHealth(){
+  const overallBox = document.getElementById('overallBox');
+  const overallDot = document.getElementById('overallDot');
+  const overallText = document.getElementById('overallText');
+  const apiTag = document.getElementById('apiTag');
+  const dbTag = document.getElementById('dbTag');
+  const checkedAt = document.getElementById('checkedAt');
+
+  function setTag(el, ok, label){
+    el.className = 'tag ' + (ok ? 'ok' : 'bad');
+    el.textContent = (ok ? '● ' : '● ') + label;
+  }
+
+  try{
+    const res = await fetch('/api/health', { cache: 'no-store' });
+    const data = await res.json();
+    const apiOk = res.ok && data.ok === true;
+    const dbOk = data.database === true;
+
+    setTag(apiTag, apiOk, apiOk ? 'Operational' : 'Not responding');
+    setTag(dbTag, dbOk, dbOk ? 'Operational' : 'Unreachable');
+
+    const allOk = apiOk && dbOk;
+    overallBox.className = 'overall ' + (allOk ? 'ok' : 'bad');
+    overallDot.className = 'dot ' + (allOk ? 'ok' : 'bad');
+    overallText.textContent = allOk ? 'All systems operational' : 'Something needs attention';
+    checkedAt.textContent = 'Checked just now, ' + new Date(data.time || Date.now()).toLocaleString();
+  } catch(e){
+    setTag(apiTag, false, 'Not responding');
+    setTag(dbTag, false, 'Unknown');
+    overallBox.className = 'overall bad';
+    overallDot.className = 'dot bad';
+    overallText.textContent = 'Could not reach the server';
+    checkedAt.textContent = 'Checked just now, ' + new Date().toLocaleString();
+  }
+}
+checkHealth();
+</script>
+</body>
+</html>

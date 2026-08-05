@@ -1,0 +1,5 @@
+node_modules
+db/roms.sqlite
+db/roms.sqlite-*
+.env
+server.log

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ROMS Ghana — Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,500&family=Public+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF4EA; --surface:#FFFFFF; --border:#E9DCC9; --ink:#2B2118; --ink-soft:#8C7A68;
+    --cocoa:#8B4A24; --cocoa-deep:#5E3117; --gold:#D9A441; --forest:#3F6B4F; --terracotta:#C0602F;
+    --critical:#B23A2A; --critical-bg:#FBE7E1; --ok:#3F6B4F; --ok-bg:#E7F0E9;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--cream); color:var(--ink); font-family:'Public Sans',sans-serif; }
+  h1,h2{ font-family:'Fraunces',serif; }
+  .mono{ font-family:'JetBrains Mono',monospace; }
+  .kente{ height:5px; width:100%; background:repeating-linear-gradient(90deg, var(--cocoa) 0px, var(--cocoa) 18px, var(--gold) 18px, var(--gold) 30px, var(--forest) 30px, var(--forest) 42px, var(--terracotta) 42px, var(--terracotta) 60px); }
+  .wrap{ max-width:1200px; margin:0 auto; padding:28px; }
+  header{ display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; }
+  h1{ font-size:26px; margin:0; }
+  .sub{ font-size:12.5px; color:var(--ink-soft); }
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; box-shadow:0 1px 2px rgba(43,33,24,.04), 0 8px 24px rgba(43,33,24,.06); margin-bottom:20px; }
+  .stat-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+  .stat-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); font-weight:700; margin-bottom:6px; }
+  .stat-val{ font-size:26px; font-weight:700; font-family:'Fraunces',serif; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th{ text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700; padding:8px 10px; border-bottom:1px solid var(--border); }
+  td{ padding:10px; border-bottom:1px solid #F1E7D8; vertical-align:top; }
+  .num{ text-align:right; font-family:'JetBrains Mono',monospace; }
+  .tag{ font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; }
+  .tag-ok{ background:var(--ok-bg); color:var(--ok); }
+  .tag-gold{ background:#FBF0DC; color:#9A6C1E; }
+  .tag-critical{ background:var(--critical-bg); color:var(--critical); }
+  input{ font-family:'Public Sans',sans-serif; border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:13px; background:#FCF8F1; }
+  button{ border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; background:var(--cocoa); color:#fff; }
+  button:hover{ background:var(--cocoa-deep); }
+  .pill-btn{ border:1px solid var(--border); background:#fff; border-radius:6px; padding:5px 10px; font-size:11px; font-weight:600; cursor:pointer; color:var(--ink); }
+  #gate{ max-width:380px; margin:80px auto; text-align:center; }
+  #dashboard{ display:none; }
+  .counts{ font-size:11px; color:var(--ink-soft); }
+  .counts b{ color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="kente"></div>
+<div class="wrap">
+
+  <div id="gate">
+    <h1>ROMS Ghana — Admin</h1>
+    <p class="sub">Every action here is logged against your name — it's the accountability trail on a shared key.</p>
+    <div style="margin-top:16px;">
+      <input id="adminNameInput" placeholder="Your name (e.g. Annette)" style="width:100%; margin-bottom:8px;">
+      <div style="display:flex; gap:8px;">
+        <input id="adminKeyInput" type="password" placeholder="Admin key" style="flex:1;">
+        <button id="unlockBtn">View</button>
+      </div>
+    </div>
+    <div id="gateError" style="color:var(--critical); font-size:12.5px; margin-top:10px;"></div>
+  </div>
+
+  <div id="dashboard">
+    <header>
+      <div>
+        <h1>All Businesses</h1>
+        <div class="sub">Every signup, how much they're actually using it, and payment status.</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="showActivityBtn" style="background:#fff; color:var(--ink); border:1px solid var(--border);">Admin activity log</button>
+        <button id="sendWarningsBtn" style="background:#fff; color:var(--ink); border:1px solid var(--border);">Send renewal reminders</button>
+        <button id="refreshBtn">↻ Refresh</button>
+      </div>
+    </header>
+
+    <div class="stat-grid" id="statGrid"></div>
+
+    <div class="card" id="activityCard" style="display:none;">
+      <table>
+        <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Detail</th><th>IP</th></tr></thead>
+        <tbody id="activityBody"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead><tr>
+          <th>Business</th><th>Owner</th><th>Signed up</th><th>Last login</th>
+          <th>Usage</th><th>Payment</th><th></th>
+        </tr></thead>
+        <tbody id="bizBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+let ADMIN_KEY = null;
+let ADMIN_NAME = null;
+
+async function adminApi(path, opts={}){
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type':'application/json', 'X-Admin-Key': ADMIN_KEY, 'X-Admin-Name': ADMIN_NAME, ...(opts.headers||{}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined
+  });
+  const data = await res.json().catch(()=>null);
+  if(!res.ok) throw new Error((data && data.error) || 'Request failed.');
+  return data;
+}
+
+document.getElementById('unlockBtn').addEventListener('click', async ()=>{
+  const key = document.getElementById('adminKeyInput').value.trim();
+  const name = document.getElementById('adminNameInput').value.trim();
+  if(!name) { document.getElementById('gateError').textContent = 'Enter your name first.'; return; }
+  if(!key) return;
+  ADMIN_KEY = key;
+  ADMIN_NAME = name;
+  try{
+    await loadBusinesses();
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+  } catch(e){
+    document.getElementById('gateError').textContent = e.message;
+    ADMIN_KEY = null;
+    ADMIN_NAME = null;
+  }
+});
+document.getElementById('adminKeyInput').addEventListener('keydown', (e)=>{ if(e.key==='Enter') document.getElementById('unlockBtn').click(); });
+document.getElementById('refreshBtn').addEventListener('click', loadBusinesses);
+document.getElementById('sendWarningsBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('sendWarningsBtn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  try{
+    const r = await adminApi('/api/admin/send-renewal-warnings', {method:'POST'});
+    alert(`Sent: ${r.sent}\nFailed: ${r.failed}\nSkipped (recently warned): ${r.skipped}\nNot due yet: ${r.ineligible}`);
+    loadBusinesses();
+  } catch(e){ alert(e.message); }
+  btn.disabled = false; btn.textContent = 'Send renewal reminders';
+});
+document.getElementById('showActivityBtn').addEventListener('click', async ()=>{
+  const card = document.getElementById('activityCard');
+  if(card.style.display === 'block'){ card.style.display = 'none'; return; }
+  const rows = await adminApi('/api/admin/activity');
+  document.getElementById('activityBody').innerHTML = rows.map(r=>`
+    <tr><td>${(r.created_at||'').slice(0,16)}</td><td><b>${esc(r.admin_name)}</b></td>
+    <td>${esc(r.action)}</td><td style="font-size:12px;">${esc(r.detail)||''}</td>
+    <td class="counts">${esc(r.ip_address)||''}</td></tr>`).join('');
+  card.style.display = 'block';
+});
+
+function esc(str){
+  if(str === null || str === undefined) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+async function loadBusinesses(){
+  const data = await adminApi('/api/admin/businesses');
+  document.getElementById('statGrid').innerHTML = `
+    <div class="card" style="margin-bottom:0; ${data.pendingApprovals>0?'border-color:var(--gold);':''}"><div class="stat-label">Awaiting approval</div><div class="stat-val" style="${data.pendingApprovals>0?'color:var(--gold);':''}">${data.pendingApprovals}</div></div>
+    <div class="card" style="margin-bottom:0;"><div class="stat-label">Total businesses</div><div class="stat-val">${data.totalBusinesses}</div></div>
+    <div class="card" style="margin-bottom:0;"><div class="stat-label">Actively using it</div><div class="stat-val">${data.activeBusinesses}</div></div>
+    <div class="card" style="margin-bottom:0;"><div class="stat-label">Paid / active subscriptions</div><div class="stat-val">${data.businesses.filter(b=>b.subscription_status==='active').length}</div></div>
+  `;
+
+  document.getElementById('bizBody').innerHTML = data.businesses.map(b=>{
+    const statusTag = b.subscription_status === 'active' ? '<span class="tag tag-ok">Active</span>'
+      : b.subscription_status === 'overdue' ? '<span class="tag tag-critical">Overdue</span>'
+      : '<span class="tag tag-gold">Trial</span>';
+    const approvalTag = b.approval_status === 'pending' ? '<span class="tag tag-gold">⏳ Pending</span>'
+      : b.approval_status === 'rejected' ? '<span class="tag tag-critical">Rejected</span>'
+      : '<span class="tag tag-ok">Approved</span>';
+    const approvalActions = b.approval_status === 'pending'
+      ? `<button class="pill-btn" style="margin-right:4px;" onclick="setApproval(${b.id},'approved')">✓ Approve</button><button class="pill-btn" onclick="setApproval(${b.id},'rejected')">✕ Reject</button>`
+      : '';
+    let daysIndicator = '';
+    if(b.days_until_blocked !== null){
+      if(b.days_until_blocked < 0) daysIndicator = `<div class="counts" style="color:var(--critical); font-weight:700; margin-top:4px;">⚠ Blocked ${Math.abs(b.days_until_blocked)}d ago</div>`;
+      else if(b.days_until_blocked <= 5) daysIndicator = `<div class="counts" style="color:var(--gold); font-weight:700; margin-top:4px;">⏳ ${b.days_until_blocked}d left</div>`;
+    }
+    return `<tr style="${b.approval_status==='pending' ? 'background:#FBF0DC33;' : ''}">
+      <td><b>${esc(b.name)}</b><div class="counts">${esc(b.slug)} · ${esc(b.business_type)||'type not given'} · ${b.branch_count||'?'} branch(es)</div></td>
+      <td>${esc(b.owner_name)||'—'}<div class="counts">${esc(b.owner_email)||''}<br>${esc(b.phone_number)||'no phone'}</div></td>
+      <td>${(b.signed_up||'').slice(0,10)}</td>
+      <td>${b.last_login ? b.last_login.slice(0,16) : '<span style="color:var(--ink-soft);">never</span>'}</td>
+      <td class="counts">
+        <b>${b.counts.inventory}</b> items · <b>${b.counts.dishes}</b> dishes · <b>${b.counts.invoices}</b> invoices · <b>${b.counts.customers}</b> customers
+      </td>
+      <td>${approvalTag}<br>${statusTag}${daysIndicator}${b.subscription_note ? `<div class="counts" style="margin-top:4px;">${esc(b.subscription_note)}</div>` : ''}${b.paid_through ? `<div class="counts">through ${b.paid_through}</div>` : ''}</td>
+      <td>${approvalActions}<button class="pill-btn" style="margin-top:4px;" onclick="markPaid(${b.id})">Mark paid</button>
+        <button class="pill-btn" style="margin-top:4px; color:var(--critical); border-color:var(--critical);" onclick="deleteBusiness(${b.id}, '${esc(b.name).replace(/'/g,"\\'")}')">Delete</button></td>
+    </tr>`;
+  }).join('');
+}
+
+window.setApproval = async (id, status)=>{
+  await adminApi(`/api/admin/businesses/${id}/approval`, {method:'PATCH', body:{approval_status: status}});
+  loadBusinesses();
+};
+
+window.markPaid = async (id)=>{
+  const amount = prompt('Amount paid (GHS)?', '100');
+  if(!amount) return;
+  const days = prompt('How many days does this cover?', '30');
+  if(!days) return;
+  const paidThrough = new Date(Date.now() + parseInt(days)*24*60*60*1000).toISOString().slice(0,10);
+  await adminApi(`/api/admin/businesses/${id}/payment`, {
+    method:'PATCH',
+    body:{ subscription_status:'active', subscription_note:`Paid GHS ${amount}, marked manually`, paid_through: paidThrough }
+  });
+  loadBusinesses();
+};
+
+window.deleteBusiness = async (id, name)=>{
+  const typed = prompt(`This permanently deletes "${name}" and everything in it — inventory, invoices, customers, all of it. This cannot be undone.\n\nType the business name exactly to confirm:`);
+  if(typed === null) return; // cancelled
+  if(typed !== name){ alert('Name didn\'t match — nothing was deleted.'); return; }
+  try{
+    await adminApi(`/api/admin/businesses/${id}`, {method:'DELETE'});
+    loadBusinesses();
+  } catch(e){ alert(e.message); }
+};
+</script>
+</body>
+</html>
